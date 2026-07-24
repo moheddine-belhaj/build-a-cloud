@@ -35,3 +35,33 @@ resource "openstack_networking_floatingip_associate_v2" "tf_fip_assoc" {
   floating_ip = openstack_networking_floatingip_v2.tf_fip[count.index].address
   port_id     = data.openstack_networking_port_v2.tf_vm_port[count.index].id
 }
+
+resource "null_resource" "k8s_install" {
+  count = var.node_count
+  
+  triggers = {
+    script_hash = filesha256("${path.module}/scripts/install-k8s.sh")
+  }
+
+  depends_on = [openstack_networking_floatingip_associate_v2.tf_fip_assoc]
+
+  connection {
+    type        = "ssh"
+    host        = openstack_networking_floatingip_v2.tf_fip[count.index].address
+    user        = "ubuntu"
+    private_key = file(var.key_pair_private_key_path)
+    timeout     = "5m"
+  }
+
+  provisioner "file" {
+    source      = "${path.module}/scripts/install-k8s.sh"
+    destination = "/tmp/install-k8s.sh"
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "chmod +x /tmp/install-k8s.sh",
+      "sudo /tmp/install-k8s.sh ${var.k8s_minor_version}"
+    ]
+  }
+}

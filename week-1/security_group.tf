@@ -13,7 +13,7 @@ resource "openstack_networking_secgroup_rule_v2" "tf_sg_ssh" {
   security_group_id = openstack_networking_secgroup_v2.tf_sg.id
 }
 
-resource "openstack_networking_secgroup_rule_v2" "tf_sg_k3s_api" {
+resource "openstack_networking_secgroup_rule_v2" "tf_sg_k8s_api" {
   direction         = "ingress"
   ethertype         = "IPv4"
   protocol          = "tcp"

@@ -13,7 +13,7 @@ variable "image_name" {
 variable "flavor_name" {
   description = "OpenStack flavor (CPU/RAM/disk size)"
   type        = string
-  default     = "m1.small"
+  default     = "m1.medium"
 }
 
 variable "external_network_name" {
@@ -26,4 +26,17 @@ variable "key_pair_public_key_path" {
   description = "Path to the local SSH public key to import into OpenStack"
   type        = string
   default     = "~/.ssh/tf_key.pub"
+}
+
+variable "k8s_minor_version" {
+  description = "Kubernetes minor version (matches pkgs.k8s.io repo path)"
+  type        = string
+  default     = "1.33"
+}
+
+
+variable "key_pair_private_key_path" {
+  description = "Local path to the private key matching key_pair_public_key_path"
+  type        = string
+  default     = "~/.ssh/tf_key"
 }
