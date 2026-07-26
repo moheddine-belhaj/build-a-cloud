@@ -41,94 +41,126 @@ resource "openstack_networking_floatingip_associate_v2" "tf_fip_assoc" {
   port_id     = data.openstack_networking_port_v2.tf_vm_port[count.index].id
 }
 
-# Provision the Kubernetes control plane node over SSH.
-resource "null_resource" "k8s_control_plane" {
-  count = 1
-
-  triggers = {
-    script_hash = filesha256("${path.module}/scripts/install-control-plane.sh")
-  }
-
-  depends_on = [openstack_networking_floatingip_associate_v2.tf_fip_assoc]
-
-  connection {
-    type        = "ssh"
-    host        = openstack_networking_floatingip_v2.tf_fip[0].address
-    user        = "ubuntu"
-    private_key = file(var.key_pair_private_key_path)
-    timeout     = "5m"
-  }
-
-  provisioner "file" {
-    source      = "${path.module}/scripts/common.sh"
-    destination = "/tmp/common.sh"
-  }
-
-  provisioner "file" {
-    source      = "${path.module}/scripts/install-control-plane.sh"
-    destination = "/tmp/install-control-plane.sh"
-  }
-
-  provisioner "remote-exec" {
-    inline = [
-      "chmod +x /tmp/common.sh /tmp/install-control-plane.sh",
-      "sudo /tmp/install-control-plane.sh ${var.k8s_minor_version}"
-    ]
-  }
+# Generate the Ansible inventory file for the provisioned instances.
+resource "local_file" "ansible_inventory" {
+  content = templatefile("${path.module}/templates/inventory.tpl", {
+    floating_ips = openstack_networking_floatingip_v2.tf_fip[*].address
+  })
+  filename = "${path.module}/generated/inventory.ini"
 }
-
-# Fetch the kubeadm join command from the control plane for worker nodes.
-resource "null_resource" "fetch_join_command" {
-  count = var.node_count > 1 ? 1 : 0
-
-  depends_on = [null_resource.k8s_control_plane]
+# Run the Ansible playbook to configure the Kubernetes cluster on the provisioned instances.
+resource "null_resource" "run_ansible" {
+  depends_on = [
+    local_file.ansible_inventory,
+    openstack_networking_floatingip_associate_v2.tf_fip_assoc,
+  ]
 
   triggers = {
     always_run = timestamp()
   }
-
+  # Run the Ansible playbook to configure the Kubernetes cluster on the provisioned instances.
   provisioner "local-exec" {
-    command = "mkdir -p ${path.module}/generated && ssh -o StrictHostKeyChecking=accept-new -i ${var.key_pair_private_key_path} ubuntu@${openstack_networking_floatingip_v2.tf_fip[0].address} 'sudo kubeadm token create --print-join-command' > ${path.module}/generated/join-command.sh"
+    command     = "ansible-playbook ansible/playbook.yml"
+    working_dir = path.module
   }
 }
 
-# Join each worker node to the Kubernetes cluster.
-resource "null_resource" "k8s_worker" {
-  count = var.node_count > 1 ? var.node_count - 1 : 0
+/** 
 
-  triggers = {
-    script_hash = filesha256("${path.module}/scripts/install-worker.sh")
-  }
+Comment null_resource.k8s_control_plane / k8s_worker / fetch_join_command because I replace them with Ansible playbooks. 
+The null_resource provisioners are not idempotent and will fail if the script is run again on a node that has already been configured.
+The Ansible playbooks are idempotent and can be run multiple times without error.
 
-  depends_on = [null_resource.fetch_join_command]
+**/
 
-  connection {
-    type        = "ssh"
-    host        = openstack_networking_floatingip_v2.tf_fip[count.index + 1].address
-    user        = "ubuntu"
-    private_key = file(var.key_pair_private_key_path)
-    timeout     = "5m"
-  }
+# # Provision the Kubernetes control plane node over SSH.
+# resource "null_resource" "k8s_control_plane" {
+#   count = 1
 
-  provisioner "file" {
-    source      = "${path.module}/scripts/common.sh"
-    destination = "/tmp/common.sh"
-  }
+#   triggers = {
+#     script_hash = filesha256("${path.module}/scripts/install-control-plane.sh")
+#   }
 
-  provisioner "file" {
-    source      = "${path.module}/scripts/install-worker.sh"
-    destination = "/tmp/install-worker.sh"
-  }
+#   depends_on = [openstack_networking_floatingip_associate_v2.tf_fip_assoc]
 
-  provisioner "file" {
-    source      = "${path.module}/generated/join-command.sh"
-    destination = "/tmp/join-command.sh"
-  }
+#   connection {
+#     type        = "ssh"
+#     host        = openstack_networking_floatingip_v2.tf_fip[0].address
+#     user        = "ubuntu"
+#     private_key = file(var.key_pair_private_key_path)
+#     timeout     = "5m"
+#   }
 
-  provisioner "remote-exec" {
-    inline = [
-      "chmod +x /tmp/common.sh /tmp/install-worker.sh /tmp/join-command.sh",
-      "sudo /tmp/install-worker.sh ${var.k8s_minor_version}"
-    ]
-  }
-}
+#   provisioner "file" {
+#     source      = "${path.module}/scripts/common.sh"
+#     destination = "/tmp/common.sh"
+#   }
+
+#   provisioner "file" {
+#     source      = "${path.module}/scripts/install-control-plane.sh"
+#     destination = "/tmp/install-control-plane.sh"
+#   }
+
+#   provisioner "remote-exec" {
+#     inline = [
+#       "chmod +x /tmp/common.sh /tmp/install-control-plane.sh",
+#       "sudo /tmp/install-control-plane.sh ${var.k8s_minor_version}"
+#     ]
+#   }
+# }
+
+# # Fetch the kubeadm join command from the control plane for worker nodes.
+# resource "null_resource" "fetch_join_command" {
+#   count = var.node_count > 1 ? 1 : 0
+
+#   depends_on = [null_resource.k8s_control_plane]
+
+#   triggers = {
+#     always_run = timestamp()
+#   }
+
+#   provisioner "local-exec" {
+#     command = "mkdir -p ${path.module}/generated && ssh -o StrictHostKeyChecking=accept-new -i ${var.key_pair_private_key_path} ubuntu@${openstack_networking_floatingip_v2.tf_fip[0].address} 'sudo kubeadm token create --print-join-command' > ${path.module}/generated/join-command.sh"
+#   }
+# }
+
+# # Join each worker node to the Kubernetes cluster.
+# resource "null_resource" "k8s_worker" {
+#   count = var.node_count > 1 ? var.node_count - 1 : 0
+
+#   triggers = {
+#     script_hash = filesha256("${path.module}/scripts/install-worker.sh")
+#   }
+
+#   depends_on = [null_resource.fetch_join_command]
+
+#   connection {
+#     type        = "ssh"
+#     host        = openstack_networking_floatingip_v2.tf_fip[count.index + 1].address
+#     user        = "ubuntu"
+#     private_key = file(var.key_pair_private_key_path)
+#     timeout     = "5m"
+#   }
+
+#   provisioner "file" {
+#     source      = "${path.module}/scripts/common.sh"
+#     destination = "/tmp/common.sh"
+#   }
+
+#   provisioner "file" {
+#     source      = "${path.module}/scripts/install-worker.sh"
+#     destination = "/tmp/install-worker.sh"
+#   }
+
+#   provisioner "file" {
+#     source      = "${path.module}/generated/join-command.sh"
+#     destination = "/tmp/join-command.sh"
+#   }
+
+#   provisioner "remote-exec" {
+#     inline = [
+#       "chmod +x /tmp/common.sh /tmp/install-worker.sh /tmp/join-command.sh",
+#       "sudo /tmp/install-worker.sh ${var.k8s_minor_version}"
+#     ]
+#   }
+# }
