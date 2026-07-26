@@ -10,10 +10,16 @@ variable "image_name" {
   default     = "ubuntu-cloud"
 }
 
-variable "flavor_name" {
-  description = "OpenStack flavor (CPU/RAM/disk size)"
+variable "control_plane_flavor_name" {
+  description = "OpenStack flavor for the control-plane node"
   type        = string
   default     = "m1.medium"
+}
+
+variable "worker_flavor_name" {
+  description = "OpenStack flavor for worker nodes"
+  type        = string
+  default     = "m1.small"
 }
 
 variable "external_network_name" {
