@@ -1,8 +1,10 @@
+# Create the security group for the cluster nodes.
 resource "openstack_networking_secgroup_v2" "tf_sg" {
   name        = "tf-sg"
   description = "Security group for Terraform-managed instances"
 }
 
+# Allow SSH access to the instances from the internet.
 resource "openstack_networking_secgroup_rule_v2" "tf_sg_ssh" {
   direction         = "ingress"
   ethertype         = "IPv4"
@@ -13,6 +15,7 @@ resource "openstack_networking_secgroup_rule_v2" "tf_sg_ssh" {
   security_group_id = openstack_networking_secgroup_v2.tf_sg.id
 }
 
+# Allow Kubernetes API access from the internet.
 resource "openstack_networking_secgroup_rule_v2" "tf_sg_k8s_api" {
   direction         = "ingress"
   ethertype         = "IPv4"
@@ -23,6 +26,7 @@ resource "openstack_networking_secgroup_rule_v2" "tf_sg_k8s_api" {
   security_group_id = openstack_networking_secgroup_v2.tf_sg.id
 }
 
+# Allow full internal TCP traffic between instances in the same security group.
 resource "openstack_networking_secgroup_rule_v2" "tf_sg_internal" {
   direction         = "ingress"
   ethertype         = "IPv4"
@@ -33,6 +37,7 @@ resource "openstack_networking_secgroup_rule_v2" "tf_sg_internal" {
   security_group_id = openstack_networking_secgroup_v2.tf_sg.id
 }
 
+# Allow ICMP traffic for connectivity testing.
 resource "openstack_networking_secgroup_rule_v2" "tf_sg_icmp" {
   direction         = "ingress"
   ethertype         = "IPv4"

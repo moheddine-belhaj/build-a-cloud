@@ -1,8 +1,10 @@
+# Create the private network for the virtual machines.
 resource "openstack_networking_network_v2" "tf_net" {
   name           = "tf-net"
   admin_state_up = true
 }
 
+# Create the subnet used by the private network.
 resource "openstack_networking_subnet_v2" "tf_subnet" {
   name            = "tf-subnet"
   network_id      = openstack_networking_network_v2.tf_net.id
@@ -11,16 +13,19 @@ resource "openstack_networking_subnet_v2" "tf_subnet" {
   dns_nameservers = ["8.8.8.8"]
 }
 
+# Lookup the external OpenStack network for routing and floating IPs.
 data "openstack_networking_network_v2" "external" {
   name = var.external_network_name
 }
 
+# Create the router to connect the private network to the external network.
 resource "openstack_networking_router_v2" "tf_router" {
   name                = "tf-router"
   admin_state_up      = true
   external_network_id = data.openstack_networking_network_v2.external.id
 }
 
+# Attach the private subnet to the router.
 resource "openstack_networking_router_interface_v2" "tf_router_interface" {
   router_id = openstack_networking_router_v2.tf_router.id
   subnet_id = openstack_networking_subnet_v2.tf_subnet.id

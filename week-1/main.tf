@@ -1,8 +1,10 @@
+# Create the SSH key pair imported into OpenStack for instance access.
 resource "openstack_compute_keypair_v2" "tf_key" {
   name       = "tf-key"
   public_key = file(var.key_pair_public_key_path)
 }
 
+# Create the Kubernetes and worker virtual machines.
 resource "openstack_compute_instance_v2" "tf_vm" {
   count       = var.node_count
   name        = "tf-vm-${count.index + 1}"
@@ -19,23 +21,27 @@ resource "openstack_compute_instance_v2" "tf_vm" {
   depends_on = [openstack_networking_router_interface_v2.tf_router_interface]
 }
 
+# Allocate floating IPs for each provisioned instance.
 resource "openstack_networking_floatingip_v2" "tf_fip" {
   count   = var.node_count
   pool    = var.external_network_name
 }
 
+# Look up the network port attached to each instance.
 data "openstack_networking_port_v2" "tf_vm_port" {
   count      = var.node_count
   device_id  = openstack_compute_instance_v2.tf_vm[count.index].id
   network_id = openstack_networking_network_v2.tf_net.id
 }
 
+# Associate each floating IP with the corresponding instance port.
 resource "openstack_networking_floatingip_associate_v2" "tf_fip_assoc" {
   count       = var.node_count
   floating_ip = openstack_networking_floatingip_v2.tf_fip[count.index].address
   port_id     = data.openstack_networking_port_v2.tf_vm_port[count.index].id
 }
 
+# Provision the Kubernetes control plane node over SSH.
 resource "null_resource" "k8s_control_plane" {
   count = 1
 
@@ -71,6 +77,7 @@ resource "null_resource" "k8s_control_plane" {
   }
 }
 
+# Fetch the kubeadm join command from the control plane for worker nodes.
 resource "null_resource" "fetch_join_command" {
   count = var.node_count > 1 ? 1 : 0
 
@@ -85,6 +92,7 @@ resource "null_resource" "fetch_join_command" {
   }
 }
 
+# Join each worker node to the Kubernetes cluster.
 resource "null_resource" "k8s_worker" {
   count = var.node_count > 1 ? var.node_count - 1 : 0
 
