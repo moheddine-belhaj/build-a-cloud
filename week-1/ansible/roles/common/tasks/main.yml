@@ -1,0 +1,128 @@
+---
+- name: Disable swap immediately
+  command: swapoff -a
+  changed_when: false
+
+- name: Remove swap entry from fstab
+  replace:
+    path: /etc/fstab
+    regexp: '^([^#].*\sswap\s.*)$'
+    replace: '# \1'
+
+- name: Load required kernel modules on boot
+  copy:
+    dest: /etc/modules-load.d/k8s.conf
+    content: |
+      overlay
+      br_netfilter
+
+- name: Load overlay module now
+  modprobe:
+    name: overlay
+    state: present
+
+- name: Load br_netfilter module now
+  modprobe:
+    name: br_netfilter
+    state: present
+
+- name: Set required sysctl params
+  copy:
+    dest: /etc/sysctl.d/k8s.conf
+    content: |
+      net.bridge.bridge-nf-call-iptables  = 1
+      net.bridge.bridge-nf-call-ip6tables = 1
+      net.ipv4.ip_forward                 = 1
+
+- name: Apply sysctl settings
+  command: sysctl --system
+  changed_when: false
+
+- name: Stop unattended-upgrades to avoid apt lock contention
+  systemd:
+    name: unattended-upgrades
+    state: stopped
+  ignore_errors: true
+
+- name: Disable apt-daily timers
+  systemd:
+    name: "{{ item }}"
+    enabled: false
+    state: stopped
+  loop:
+    - apt-daily.timer
+    - apt-daily-upgrade.timer
+  ignore_errors: true
+
+- name: Install containerd
+  apt:
+    name: containerd
+    state: present
+    update_cache: yes
+
+- name: Create containerd config directory
+  file:
+    path: /etc/containerd
+    state: directory
+
+- name: Generate default containerd config
+  command: containerd config default
+  register: containerd_default_config
+  changed_when: false
+
+- name: Write containerd config
+  copy:
+    dest: /etc/containerd/config.toml
+    content: "{{ containerd_default_config.stdout }}"
+  notify: restart containerd
+
+- name: Enable SystemdCgroup in containerd config
+  replace:
+    path: /etc/containerd/config.toml
+    regexp: 'SystemdCgroup = false'
+    replace: 'SystemdCgroup = true'
+  notify: restart containerd
+
+- name: Ensure containerd is enabled and running
+  systemd:
+    name: containerd
+    enabled: yes
+    state: started
+
+- name: Install apt prerequisites
+  apt:
+    name: [apt-transport-https, ca-certificates, curl, gpg]
+    state: present
+
+- name: Create apt keyrings directory
+  file:
+    path: /etc/apt/keyrings
+    state: directory
+
+- name: Download Kubernetes apt signing key
+  get_url:
+    url: "https://pkgs.k8s.io/core:/stable:/v{{ k8s_version }}/deb/Release.key"
+    dest: /tmp/k8s-release.key
+    mode: '0644'
+
+- name: Dearmor Kubernetes signing key
+  command: gpg --yes --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg /tmp/k8s-release.key
+  args:
+    creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+- name: Add Kubernetes apt repository
+  apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v{{ k8s_version }}/deb/ /"
+    filename: kubernetes
+
+- name: Install kubelet, kubeadm, kubectl
+  apt:
+    name: [kubelet, kubeadm, kubectl]
+    state: present
+    update_cache: yes
+
+- name: Hold kubelet, kubeadm, kubectl at current version
+  dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop: [kubelet, kubeadm, kubectl]

@@ -1,0 +1,24 @@
+---
+- name: Configure all nodes with common prerequisites
+  hosts: all
+  become: true
+  vars:
+    k8s_version: "1.33"
+  roles:
+    - common
+
+- name: Initialize the control plane
+  hosts: control_plane
+  become: true
+  vars:
+    k8s_version: "1.33"
+  roles:
+    - control_plane
+
+- name: Join worker nodes to the cluster
+  hosts: workers
+  become: true
+  vars:
+    k8s_version: "1.33"
+  roles:
+    - worker

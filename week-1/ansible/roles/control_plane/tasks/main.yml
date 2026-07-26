@@ -1,0 +1,52 @@
+---
+- name: Check if control plane already initialized
+  stat:
+    path: /etc/kubernetes/admin.conf
+  register: admin_conf
+
+- name: Attempt control plane initialization
+  command: kubeadm init --pod-network-cidr=10.244.0.0/16
+  when: not admin_conf.stat.exists
+  register: init_attempt
+  failed_when: false
+  changed_when: init_attempt.rc == 0
+
+- name: Reset and retry once if the first attempt failed
+  block:
+    - name: Reset kubeadm state
+      command: kubeadm reset -f
+    - name: Pause before retry
+      pause:
+        seconds: 15
+    - name: Retry control plane initialization
+      command: kubeadm init --pod-network-cidr=10.244.0.0/16
+  when: not admin_conf.stat.exists and init_attempt.rc != 0
+
+- name: Create .kube directory for ubuntu user
+  file:
+    path: /home/ubuntu/.kube
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+
+- name: Copy admin.conf to ubuntu's kubeconfig
+  copy:
+    src: /etc/kubernetes/admin.conf
+    dest: /home/ubuntu/.kube/config
+    remote_src: yes
+    owner: ubuntu
+    group: ubuntu
+
+- name: Install Flannel CNI
+  become: false
+  environment:
+    KUBECONFIG: /home/ubuntu/.kube/config
+  command: kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
+
+- name: Generate a fresh join command
+  command: kubeadm token create --print-join-command
+  register: join_command_raw
+
+- name: Store join command for worker nodes to use
+  set_fact:
+    join_command: "{{ join_command_raw.stdout }}"
