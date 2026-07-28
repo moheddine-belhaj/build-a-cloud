@@ -11,7 +11,7 @@ resource "stackit_ske_cluster" "ske_cluster" {
     name               = "default"
     machine_type       = "g1a.4d"
     minimum            = 2
-    maximum            = 3
+    maximum            = 4
     availability_zones = ["eu01-1", "eu01-2", "eu01-3"]
     os_name            = "flatcar"
     volume_size        = 32
@@ -28,8 +28,10 @@ resource "stackit_ske_cluster" "ske_cluster" {
 
 # Resource: SKE kubeconfig
 # Generates and refreshes the kubeconfig for the created cluster so `kubectl` can connect.
+# Kubeconfig expiration → 8 hours, in seconds (8 * 3600) = 28800
 resource "stackit_ske_kubeconfig" "kubeconfig" {
   project_id   = var.project_id
   cluster_name = stackit_ske_cluster.ske_cluster.name
   refresh      = true
+  expiration   = 28800
 }
