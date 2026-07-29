@@ -10,7 +10,7 @@ spec:
   source:
     repoURL: https://level3.git.onstackit.cloud/LEVEL3/Moheddine.git
     targetRevision: main
-    path: gitops/paas-service
+    path: week-2/gitops/paas-service/manifests
   destination:
     server: https://kubernetes.default.svc
     namespace: cnpg-system
