@@ -9,9 +9,9 @@ resource "stackit_ske_cluster" "ske_cluster" {
 
   node_pools = [{
     name               = "default"
-    machine_type       = "g1a.4d"
+    machine_type       = "g1a.2d"
     minimum            = 2
-    maximum            = 4
+    maximum            = 5
     availability_zones = ["eu01-1", "eu01-2", "eu01-3"]
     os_name            = "flatcar"
     volume_size        = 32
