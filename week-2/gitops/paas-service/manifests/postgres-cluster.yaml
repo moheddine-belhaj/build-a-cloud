@@ -3,7 +3,7 @@ kind: Cluster
 metadata:
   name: tenant-db
 spec:
-  instances: 4
+  instances: 3
   storage:
     size: 5Gi
     storageClass: premium-perf4-stackit
