@@ -5,13 +5,13 @@
 resource "stackit_ske_cluster" "ske_cluster" {
   project_id             = var.project_id
   name                   = "paas-ske"
-  kubernetes_version_min = "1.34"
+  kubernetes_version_min = "1.34.9"
 
   node_pools = [{
     name               = "default"
     machine_type       = "g1a.2d"
     minimum            = 2
-    maximum            = 5
+    maximum            = 6
     availability_zones = ["eu01-1", "eu01-2", "eu01-3"]
     os_name            = "flatcar"
     volume_size        = 32
