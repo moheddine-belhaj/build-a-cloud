@@ -33,8 +33,8 @@ jobs:
           echo "TF_VAR_service_account_key_path=$(pwd)/sa_key.json" >> "$GITHUB_ENV"
           echo "TF_VAR_private_key_path=$(pwd)/private_key.pem" >> "$GITHUB_ENV"
           echo "TF_VAR_project_id=$STACKIT_PROJECT_ID" >> "$GITHUB_ENV"
-          echo "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" >> "$GITHUB_ENV"
-          echo "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" >> "$GITHUB_ENV"
+          echo "AWS_ACCESS_KEY_ID=$STACKIT_OS_ACCESS_KEY" >> "$GITHUB_ENV"
+          echo "AWS_SECRET_ACCESS_KEY=$STACKIT_OS_SECRET_KEY" >> "$GITHUB_ENV"
 
       - run: terraform init
       - run: terraform validate
