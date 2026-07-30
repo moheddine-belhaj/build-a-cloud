@@ -25,12 +25,16 @@ jobs:
           STACKIT_SA_KEY: ${{ secrets.STACKIT_SA_KEY }}
           STACKIT_PRIVATE_KEY: ${{ secrets.STACKIT_PRIVATE_KEY }}
           STACKIT_PROJECT_ID: ${{ secrets.STACKIT_PROJECT_ID }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.STACKIT_OS_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.STACKIT_OS_SECRET_KEY }}
         run: |
           echo "$STACKIT_SA_KEY" > sa_key.json
           echo "$STACKIT_PRIVATE_KEY" > private_key.pem
           echo "TF_VAR_service_account_key_path=$(pwd)/sa_key.json" >> "$GITHUB_ENV"
           echo "TF_VAR_private_key_path=$(pwd)/private_key.pem" >> "$GITHUB_ENV"
           echo "TF_VAR_project_id=$STACKIT_PROJECT_ID" >> "$GITHUB_ENV"
+          echo "AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID" >> "$GITHUB_ENV"
+          echo "AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY" >> "$GITHUB_ENV"
 
       - run: terraform init
       - run: terraform validate

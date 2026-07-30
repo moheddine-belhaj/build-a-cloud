@@ -5,7 +5,21 @@ terraform {
       version = "~> 0.104"
     }
   }
+  backend "s3" {
+    bucket   = "week2-tfstate"
+    key      = "week-2/infra/terraform.tfstate"
+    region   = "eu01"
+    endpoints = {
+      s3 = "https://object.storage.eu01.onstackit.cloud"
+    }
+    use_path_style              = true
+    skip_credentials_validation = true
+    skip_region_validation      = true
+    skip_s3_checksum            = true
+    skip_requesting_account_id  = true
+  }
 }
+
 
 provider "stackit" {
   default_region           = "eu01"
