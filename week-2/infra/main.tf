@@ -2,7 +2,7 @@
 # Creates a Kubernetes cluster named "paas-ske" with a single node pool.
 # - `kubernetes_version_min`: Minimum K8s version
 # - `node_pools`: Defines machine type, scaling and storage
-# retrigger deploy : End-to-end pipeline verification
+# retrigger deploy : debug
 
 resource "stackit_ske_cluster" "ske_cluster" {
   project_id             = var.project_id
