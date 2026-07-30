@@ -35,7 +35,10 @@ jobs:
           echo "TF_VAR_project_id=$STACKIT_PROJECT_ID" >> "$GITHUB_ENV"
           echo "AWS_ACCESS_KEY_ID=$STACKIT_OS_ACCESS_KEY" >> "$GITHUB_ENV"
           echo "AWS_SECRET_ACCESS_KEY=$STACKIT_OS_SECRET_KEY" >> "$GITHUB_ENV"
-
+      - name: Debug - check credentials are set
+        run: |
+          if [ -z "$AWS_ACCESS_KEY_ID" ]; then echo "AWS_ACCESS_KEY_ID is EMPTY"; else echo "AWS_ACCESS_KEY_ID is set (length: ${#AWS_ACCESS_KEY_ID})"; fi
+          if [ -z "$AWS_SECRET_ACCESS_KEY" ]; then echo "AWS_SECRET_ACCESS_KEY is EMPTY"; else echo "AWS_SECRET_ACCESS_KEY is set (length: ${#AWS_SECRET_ACCESS_KEY})"; fi
       - run: terraform init
       - run: terraform validate
       - run: terraform plan -out=tfplan
