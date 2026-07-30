@@ -16,6 +16,7 @@ resource "stackit_ske_cluster" "ske_cluster" {
     maximum            = 3
     availability_zones = ["eu01-1", "eu01-2", "eu01-3"]
     os_name            = "flatcar"
+    os_version_min     = "4593.2.2"
     volume_size        = 32
     volume_type        = "storage_premium_perf6"
   }]
