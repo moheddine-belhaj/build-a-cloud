@@ -25,8 +25,8 @@ jobs:
           STACKIT_SA_KEY: ${{ secrets.STACKIT_SA_KEY }}
           STACKIT_PRIVATE_KEY: ${{ secrets.STACKIT_PRIVATE_KEY }}
           STACKIT_PROJECT_ID: ${{ secrets.STACKIT_PROJECT_ID }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.STACKIT_OS_ACCESS_KEY }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.STACKIT_OS_SECRET_KEY }}
+          STACKIT_OS_ACCESS_KEY: ${{ secrets.STACKIT_OS_ACCESS_KEY }}
+          STACKIT_OS_SECRET_KEY: ${{ secrets.STACKIT_OS_SECRET_KEY }}
         run: |
           echo "$STACKIT_SA_KEY" > sa_key.json
           echo "$STACKIT_PRIVATE_KEY" > private_key.pem
