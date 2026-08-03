@@ -7,7 +7,7 @@ terraform {
   }
   backend "s3" {
     bucket   = "week2-tfstate"
-    key      = "week-2/infra/terraform.tfstate"
+    key      = "week-3/infra/terraform.tfstate"
     region   = "eu01"
     endpoints = {
       s3 = "https://object.storage.eu01.onstackit.cloud"

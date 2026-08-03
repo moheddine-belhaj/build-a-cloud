@@ -3,7 +3,7 @@ name: deploy
 on:
   push:
     branches: [main]
-    paths: ['week-2/infra/**']
+    paths: ['week-3/infra/**']
 
 jobs:
   terraform:
