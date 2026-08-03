@@ -1,0 +1,13 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: tenant-db
+spec:
+  instances: 4
+  storage:
+    size: 5Gi
+    storageClass: premium-perf4-stackit
+  bootstrap:
+    initdb:
+      database: appdb
+      owner: appuser
