@@ -1,0 +1,160 @@
+openapi: 3.0.3
+info:
+  title: PaaS Product API
+  version: "1.0.0"
+  description: Provisions and manages managed Postgres instances on STACKIT SKE.
+
+paths:
+  /v1/instances:
+    post:
+      summary: Create a new product instance
+      operationId: createInstance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInstanceRequest'
+      responses:
+        '201':
+          description: Instance creation accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Instance'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    get:
+      summary: List all product instances
+      operationId: listInstances
+      responses:
+        '200':
+          description: List of instances
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Instance'
+
+  /v1/instances/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Get a single instance
+      operationId: getInstance
+      responses:
+        '200':
+          description: Instance details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Instance'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      summary: Delete a product instance
+      operationId: deleteInstance
+      responses:
+        '202':
+          description: Deletion accepted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/instances/{id}/connection:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      summary: Get connection and access data for an instance
+      operationId: getInstanceConnection
+      responses:
+        '200':
+          description: Connection details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectionInfo'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Instance not ready yet — no credentials available
+
+components:
+  schemas:
+    CreateInstanceRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          pattern: '^[a-z][a-z0-9-]{0,9}$'
+          description: Must be ≤11 chars (SKE-style naming constraint you already hit once)
+        instances:
+          type: integer
+          minimum: 1
+          maximum: 5
+          default: 3
+        storageSize:
+          type: string
+          default: "5Gi"
+          example: "5Gi"
+
+    Instance:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        phase:
+          type: string
+          enum: [Provisioning, Healthy, Degraded, Deleting]
+        instances:
+          type: integer
+        readyInstances:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    ConnectionInfo:
+      type: object
+      properties:
+        host:
+          type: string
+        port:
+          type: integer
+        database:
+          type: string
+        username:
+          type: string
+        password:
+          type: string
+
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Instance not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
