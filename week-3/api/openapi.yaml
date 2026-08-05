@@ -2,12 +2,26 @@ openapi: 3.0.3
 info:
   title: PaaS Product API
   version: "1.0.0"
-  description: Provisions and manages managed Postgres instances on STACKIT SKE.
+  description: |
+    Provisions and manages managed Postgres database instances running on
+    STACKIT SKE, backed by the CloudNativePG operator. Each "instance"
+    represents one full database product (one CNPG Cluster, made up of one
+    or more Postgres pods internally).
+
+tags:
+  - name: Instances
+    description: Create, inspect, and remove product instances, and retrieve their connection details.
 
 paths:
   /v1/instances:
     post:
+      tags: [Instances]
       summary: Create a new product instance
+      description: >
+        Creates a new managed Postgres instance. Returns immediately once the
+        request is accepted and stored — the instance is not yet running at
+        this point (phase will be `Provisioning`). Poll GET /v1/instances/{id}
+        to check when it becomes `Healthy`.
       operationId: createInstance
       requestBody:
         required: true
@@ -15,9 +29,13 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateInstanceRequest'
+            example:
+              name: api-test-1
+              instances: 3
+              storageSize: 5Gi
       responses:
         '201':
-          description: Instance creation accepted
+          description: Instance accepted and being provisioned
           content:
             application/json:
               schema:
@@ -25,7 +43,9 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
     get:
+      tags: [Instances]
       summary: List all product instances
+      description: Returns every instance currently known to the platform, regardless of phase.
       operationId: listInstances
       responses:
         '200':
@@ -42,10 +62,14 @@ paths:
       - name: id
         in: path
         required: true
+        description: The instance's unique name (same value provided at creation time).
         schema:
           type: string
+        example: api-test-1
     get:
+      tags: [Instances]
       summary: Get a single instance
+      description: Returns the current state of one instance, including its live phase.
       operationId: getInstance
       responses:
         '200':
@@ -57,7 +81,12 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
     delete:
+      tags: [Instances]
       summary: Delete a product instance
+      description: >
+        Deletes the instance. Deletion is asynchronous — the underlying pods,
+        volumes, and secrets are torn down by the operator shortly after this
+        call returns, not synchronously within it.
       operationId: deleteInstance
       responses:
         '202':
@@ -70,10 +99,17 @@ paths:
       - name: id
         in: path
         required: true
+        description: The instance's unique name.
         schema:
           type: string
+        example: api-test-1
     get:
+      tags: [Instances]
       summary: Get connection and access data for an instance
+      description: >
+        Returns the host, port, database name, and credentials needed to
+        connect to this instance. Only available once the instance has
+        finished bootstrapping.
       operationId: getInstanceConnection
       responses:
         '200':
@@ -85,7 +121,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          description: Instance not ready yet — no credentials available
+          description: Instance exists but hasn't finished provisioning yet — no credentials available
 
 components:
   schemas:
@@ -96,31 +132,41 @@ components:
         name:
           type: string
           pattern: '^[a-z][a-z0-9-]{0,9}$'
-          description: Must be ≤11 chars (SKE naming constraint)
+          description: >
+            Unique instance name. Must start with a lowercase letter, contain
+            only lowercase letters/digits/hyphens, and be 11 characters or
+            fewer (a hard limit of the underlying SKE platform).
+          example: api-test-1
         instances:
           type: integer
           minimum: 1
           maximum: 5
           default: 3
+          description: Number of Postgres pods (1 primary + N-1 replicas) backing this instance.
         storageSize:
           type: string
           default: "5Gi"
           example: "5Gi"
+          description: Disk size per Postgres pod, in Kubernetes quantity notation.
 
     Instance:
       type: object
       properties:
         id:
           type: string
+          description: Unique instance identifier (matches the name given at creation).
         name:
           type: string
         phase:
           type: string
           enum: [Provisioning, Healthy, Degraded, Deleting]
+          description: Current lifecycle state, as reported by the underlying database operator.
         instances:
           type: integer
+          description: Desired number of Postgres pods.
         readyInstances:
           type: integer
+          description: Number of Postgres pods currently ready and serving traffic.
         createdAt:
           type: string
           format: date-time
@@ -130,14 +176,20 @@ components:
       properties:
         host:
           type: string
+          description: In-cluster DNS name for the instance's primary (read/write) endpoint.
+          example: api-test-1-rw.cnpg-system.svc.cluster.local
         port:
           type: integer
+          example: 5432
         database:
           type: string
+          example: appdb
         username:
           type: string
+          example: appuser
         password:
           type: string
+          description: Auto-generated at instance creation. Not recoverable if lost — the instance must be recreated.
 
     Error:
       type: object
