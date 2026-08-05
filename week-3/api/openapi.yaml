@@ -96,7 +96,7 @@ components:
         name:
           type: string
           pattern: '^[a-z][a-z0-9-]{0,9}$'
-          description: Must be ≤11 chars (SKE-style naming constraint you already hit once)
+          description: Must be ≤11 chars (SKE naming constraint)
         instances:
           type: integer
           minimum: 1
