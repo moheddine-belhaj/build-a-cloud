@@ -9,9 +9,9 @@ import (
 	"k8s.io/client-go/dynamic"
 )
 
-const namespace = "cnpg-system"
+const Namespace = "cnpg-system"
 
-var clusterGVR = schema.GroupVersionResource{
+var ClusterGVR = schema.GroupVersionResource{
 	Group:    "postgresql.cnpg.io",
 	Version:  "v1",
 	Resource: "clusters",
@@ -24,7 +24,7 @@ func CreateCluster(ctx context.Context, dyn dynamic.Interface, name string, inst
 			"kind":       "Cluster",
 			"metadata": map[string]interface{}{
 				"name":      name,
-				"namespace": namespace,
+				"namespace": Namespace,
 			},
 			"spec": map[string]interface{}{
 				"instances": instances,
@@ -41,19 +41,19 @@ func CreateCluster(ctx context.Context, dyn dynamic.Interface, name string, inst
 			},
 		},
 	}
-	return dyn.Resource(clusterGVR).Namespace(namespace).Create(ctx, cluster, metav1.CreateOptions{})
+	return dyn.Resource(ClusterGVR).Namespace(Namespace).Create(ctx, cluster, metav1.CreateOptions{})
 }
 
 func GetCluster(ctx context.Context, dyn dynamic.Interface, name string) (*unstructured.Unstructured, error) {
-	return dyn.Resource(clusterGVR).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+	return dyn.Resource(ClusterGVR).Namespace(Namespace).Get(ctx, name, metav1.GetOptions{})
 }
 
 func ListClusters(ctx context.Context, dyn dynamic.Interface) (*unstructured.UnstructuredList, error) {
-	return dyn.Resource(clusterGVR).Namespace(namespace).List(ctx, metav1.ListOptions{})
+	return dyn.Resource(ClusterGVR).Namespace(Namespace).List(ctx, metav1.ListOptions{})
 }
 
 func DeleteCluster(ctx context.Context, dyn dynamic.Interface, name string) error {
-	return dyn.Resource(clusterGVR).Namespace(namespace).Delete(ctx, name, metav1.DeleteOptions{})
+	return dyn.Resource(ClusterGVR).Namespace(Namespace).Delete(ctx, name, metav1.DeleteOptions{})
 }
 
 // helper to pull fields back out of the unstructured object safely
