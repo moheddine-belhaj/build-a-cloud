@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: paas-api
+  namespace: cnpg-system
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: paas-api
+  template:
+    metadata:
+      labels:
+        app: paas-api
+    spec:
+      serviceAccountName: paas-api
+      imagePullSecrets:
+        - name: paas-api-registry-pull
+      containers:
+        - name: paas-api
+          image: registry.onstackit.cloud/moheddine-paas/paas-api:v1
+          ports:
+            - containerPort: 8080
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 128Mi
