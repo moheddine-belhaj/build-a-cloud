@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/moheddine-belhaj/build-a-cloud/week-3/api/internal/generated"
 	"github.com/moheddine-belhaj/build-a-cloud/week-3/api/internal/k8s"
+	"github.com/moheddine-belhaj/build-a-cloud/week-3/api/internal/types"
 	"k8s.io/client-go/dynamic"
 )
 
@@ -21,7 +21,7 @@ func NewServer(dyn dynamic.Interface) *Server {
 func ptr[T any](v T) *T { return &v }
 
 func (s *Server) CreateInstance(w http.ResponseWriter, r *http.Request) {
-	var req generated.CreateInstanceRequest
+	var req types.CreateInstanceRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, `{"message":"invalid request body"}`, http.StatusBadRequest)
 		return
@@ -44,10 +44,10 @@ func (s *Server) CreateInstance(w http.ResponseWriter, r *http.Request) {
 
 	name := obj.GetName()
 	now := time.Now()
-	resp := generated.Instance{
+	resp := types.Instance{
 		Id:        ptr(name),
 		Name:      ptr(name),
-		Phase:     ptr(generated.Provisioning),
+		Phase:     ptr(types.Provisioning),
 		CreatedAt: &now,
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -61,14 +61,14 @@ func (s *Server) ListInstances(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"message":"failed to list instances"}`, http.StatusInternalServerError)
 		return
 	}
-	out := make([]generated.Instance, 0, len(list.Items))
+	out := make([]types.Instance, 0, len(list.Items))
 	for _, item := range list.Items {
 		name := item.GetName()
 		phase := k8s.ExtractPhase(&item)
-		out = append(out, generated.Instance{
+		out = append(out, types.Instance{
 			Id:    ptr(name),
 			Name:  ptr(name),
-			Phase: ptr(generated.InstancePhase(phase)),
+			Phase: ptr(types.InstancePhase(phase)),
 		})
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -83,10 +83,10 @@ func (s *Server) GetInstance(w http.ResponseWriter, r *http.Request, id string) 
 	}
 	name := obj.GetName()
 	phase := k8s.ExtractPhase(obj)
-	resp := generated.Instance{
+	resp := types.Instance{
 		Id:    ptr(name),
 		Name:  ptr(name),
-		Phase: ptr(generated.InstancePhase(phase)),
+		Phase: ptr(types.InstancePhase(phase)),
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)

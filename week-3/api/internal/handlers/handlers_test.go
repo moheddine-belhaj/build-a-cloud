@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/moheddine-belhaj/build-a-cloud/week-3/api/internal/generated"
 	"github.com/moheddine-belhaj/build-a-cloud/week-3/api/internal/handlers"
 	"github.com/moheddine-belhaj/build-a-cloud/week-3/api/internal/k8s"
+	"github.com/moheddine-belhaj/build-a-cloud/week-3/api/internal/types"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -63,11 +63,11 @@ func TestCreateInstance(t *testing.T) {
 	if w.Code != http.StatusCreated {
 		t.Fatalf("status = %d, want %d, body=%s", w.Code, http.StatusCreated, w.Body.String())
 	}
-	got := decode[generated.Instance](t, w.Body)
+	got := decode[types.Instance](t, w.Body)
 	if got.Name == nil || *got.Name != "api-test-1" {
 		t.Errorf("name = %v, want api-test-1", got.Name)
 	}
-	if got.Phase == nil || *got.Phase != generated.Provisioning {
+	if got.Phase == nil || *got.Phase != types.Provisioning {
 		t.Errorf("phase = %v, want Provisioning", got.Phase)
 	}
 	if got.CreatedAt == nil {
@@ -156,19 +156,19 @@ func TestListInstances(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d, body=%s", w.Code, http.StatusOK, w.Body.String())
 	}
-	got := decode[[]generated.Instance](t, w.Body)
+	got := decode[[]types.Instance](t, w.Body)
 	if len(got) != 2 {
 		t.Fatalf("got %d instances, want 2", len(got))
 	}
 
-	byName := map[string]generated.Instance{}
+	byName := map[string]types.Instance{}
 	for _, inst := range got {
 		byName[*inst.Name] = inst
 	}
-	if phase := byName["api-test-1"].Phase; phase == nil || *phase != generated.Healthy {
+	if phase := byName["api-test-1"].Phase; phase == nil || *phase != types.Healthy {
 		t.Errorf("api-test-1 phase = %v, want Healthy", phase)
 	}
-	if phase := byName["api-test-2"].Phase; phase == nil || *phase != generated.Provisioning {
+	if phase := byName["api-test-2"].Phase; phase == nil || *phase != types.Provisioning {
 		t.Errorf("api-test-2 phase = %v, want Provisioning", phase)
 	}
 }
@@ -184,7 +184,7 @@ func TestListInstances_Empty(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", w.Code, http.StatusOK)
 	}
-	got := decode[[]generated.Instance](t, w.Body)
+	got := decode[[]types.Instance](t, w.Body)
 	if len(got) != 0 {
 		t.Fatalf("got %d instances, want 0", len(got))
 	}
@@ -201,11 +201,11 @@ func TestGetInstance(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d, body=%s", w.Code, http.StatusOK, w.Body.String())
 	}
-	got := decode[generated.Instance](t, w.Body)
+	got := decode[types.Instance](t, w.Body)
 	if got.Name == nil || *got.Name != "api-test-1" {
 		t.Errorf("name = %v, want api-test-1", got.Name)
 	}
-	if got.Phase == nil || *got.Phase != generated.Healthy {
+	if got.Phase == nil || *got.Phase != types.Healthy {
 		t.Errorf("phase = %v, want Healthy", got.Phase)
 	}
 }
