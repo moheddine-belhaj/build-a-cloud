@@ -27,16 +27,16 @@ func (s *Server) CreateInstance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	instances := int64(3)
-	if req.Instances != nil {
-		instances = int64(*req.Instances)
+	if req.Instances == nil {
+		http.Error(w, `{"message":"instances is required"}`, http.StatusBadRequest)
+		return
 	}
-	storageSize := "5Gi"
-	if req.StorageSize != nil {
-		storageSize = *req.StorageSize
+	if req.StorageSize == nil || *req.StorageSize == "" {
+		http.Error(w, `{"message":"storageSize is required"}`, http.StatusBadRequest)
+		return
 	}
 
-	obj, err := k8s.CreateCluster(r.Context(), s.dyn, req.Name, instances, storageSize)
+	obj, err := k8s.CreateCluster(r.Context(), s.dyn, req.Name, int64(*req.Instances), *req.StorageSize)
 	if err != nil {
 		http.Error(w, `{"message":"failed to create instance: `+err.Error()+`"}`, http.StatusBadRequest)
 		return

@@ -127,7 +127,7 @@ components:
   schemas:
     CreateInstanceRequest:
       type: object
-      required: [name]
+      required: [name, instances, storageSize]
       properties:
         name:
           type: string
@@ -141,11 +141,9 @@ components:
           type: integer
           minimum: 1
           maximum: 5
-          default: 3
           description: Number of Postgres pods (1 primary + N-1 replicas) backing this instance.
         storageSize:
           type: string
-          default: "5Gi"
           example: "5Gi"
           description: Disk size per Postgres pod, in Kubernetes quantity notation.
 

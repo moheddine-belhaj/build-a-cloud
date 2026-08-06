@@ -54,7 +54,7 @@ func decode[T any](t *testing.T, body *bytes.Buffer) T {
 func TestCreateInstance(t *testing.T) {
 	srv, dyn := newFakeServer()
 
-	body := strings.NewReader(`{"name":"api-test-1"}`)
+	body := strings.NewReader(`{"name":"api-test-1","instances":5,"storageSize":"10Gi"}`)
 	req := httptest.NewRequest(http.MethodPost, "/v1/instances", body)
 	w := httptest.NewRecorder()
 
@@ -74,35 +74,7 @@ func TestCreateInstance(t *testing.T) {
 		t.Error("createdAt = nil, want a timestamp")
 	}
 
-	// Verify the object was actually created with the expected defaults.
 	obj, err := k8s.GetCluster(req.Context(), dyn, "api-test-1")
-	if err != nil {
-		t.Fatalf("expected cluster to exist in k8s after create: %v", err)
-	}
-	instances, _, _ := unstructured.NestedInt64(obj.Object, "spec", "instances")
-	if instances != 3 {
-		t.Errorf("default spec.instances = %d, want 3", instances)
-	}
-	size, _, _ := unstructured.NestedString(obj.Object, "spec", "storage", "size")
-	if size != "5Gi" {
-		t.Errorf("default spec.storage.size = %q, want 5Gi", size)
-	}
-}
-
-func TestCreateInstance_CustomInstancesAndStorage(t *testing.T) {
-	srv, dyn := newFakeServer()
-
-	body := strings.NewReader(`{"name":"api-test-2","instances":5,"storageSize":"10Gi"}`)
-	req := httptest.NewRequest(http.MethodPost, "/v1/instances", body)
-	w := httptest.NewRecorder()
-
-	srv.CreateInstance(w, req)
-
-	if w.Code != http.StatusCreated {
-		t.Fatalf("status = %d, want %d, body=%s", w.Code, http.StatusCreated, w.Body.String())
-	}
-
-	obj, err := k8s.GetCluster(req.Context(), dyn, "api-test-2")
 	if err != nil {
 		t.Fatalf("expected cluster to exist in k8s after create: %v", err)
 	}
@@ -129,10 +101,36 @@ func TestCreateInstance_InvalidBody(t *testing.T) {
 	}
 }
 
+func TestCreateInstance_MissingInstances(t *testing.T) {
+	srv, _ := newFakeServer()
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/instances", strings.NewReader(`{"name":"api-test-1","storageSize":"5Gi"}`))
+	w := httptest.NewRecorder()
+
+	srv.CreateInstance(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusBadRequest)
+	}
+}
+
+func TestCreateInstance_MissingStorageSize(t *testing.T) {
+	srv, _ := newFakeServer()
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/instances", strings.NewReader(`{"name":"api-test-1","instances":3}`))
+	w := httptest.NewRecorder()
+
+	srv.CreateInstance(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusBadRequest)
+	}
+}
+
 func TestCreateInstance_Duplicate(t *testing.T) {
 	srv, _ := newFakeServer(newCluster("api-test-1", ""))
 
-	req := httptest.NewRequest(http.MethodPost, "/v1/instances", strings.NewReader(`{"name":"api-test-1"}`))
+	req := httptest.NewRequest(http.MethodPost, "/v1/instances", strings.NewReader(`{"name":"api-test-1","instances":3,"storageSize":"5Gi"}`))
 	w := httptest.NewRecorder()
 
 	srv.CreateInstance(w, req)
