@@ -16,6 +16,7 @@ func main() {
 	}
 	srv := handlers.NewServer(dyn)
 	mux := http.NewServeMux()
+	registerDocsRoutes(mux)
 	h := generated.HandlerFromMux(srv, mux)
 
 	log.Println("listening on :8080")
