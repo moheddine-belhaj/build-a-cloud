@@ -1,0 +1,14 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: paas-control
+  namespace: cnpg-system
+spec:
+  instances: 1
+  storage:
+    size: 2Gi
+    storageClass: premium-perf4-stackit
+  bootstrap:
+    initdb:
+      database: paasapi
+      owner: paasapi

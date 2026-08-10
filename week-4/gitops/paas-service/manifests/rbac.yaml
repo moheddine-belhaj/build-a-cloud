@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: paas-api
+  namespace: cnpg-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: paas-api-cluster-manager
+  namespace: cnpg-system
+rules:
+  - apiGroups: ["postgresql.cnpg.io"]
+    resources: ["clusters"]
+    verbs: ["get", "list", "create", "delete"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: paas-api-cluster-manager-binding
+  namespace: cnpg-system
+subjects:
+  - kind: ServiceAccount
+    name: paas-api
+    namespace: cnpg-system
+roleRef:
+  kind: Role
+  name: paas-api-cluster-manager
+  apiGroup: rbac.authorization.k8s.io

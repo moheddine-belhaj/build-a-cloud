@@ -1,0 +1,322 @@
+openapi: 3.0.3
+info:
+  title: PaaS Product API
+  version: "1.0.0"
+  description: |
+    Provisions and manages managed Postgres database instances running on
+    STACKIT SKE, backed by the CloudNativePG operator. Each "instance"
+    represents one full database product (one CNPG Cluster, made up of one
+    or more Postgres pods internally).
+
+tags:
+  - name: Auth
+    description: Register an account and obtain a JWT to use as a bearer token on all other endpoints.
+  - name: Instances
+    description: Create, inspect, and remove product instances, and retrieve their connection details. Each instance is scoped to the authenticated user who created it.
+
+security:
+  - bearerAuth: []
+
+paths:
+  /v1/auth/register:
+    post:
+      tags: [Auth]
+      summary: Create a new user account
+      operationId: registerUser
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: An account with this email already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: Exchange email/password for a JWT
+      operationId: loginUser
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Credentials'
+      responses:
+        '200':
+          description: Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid email or password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/instances:
+    post:
+      tags: [Instances]
+      summary: Create a new product instance
+      description: >
+        Creates a new managed Postgres instance, owned by the authenticated
+        user. Returns immediately once the request is accepted and stored —
+        the instance is not yet running at this point (phase will be
+        `Provisioning`). Poll GET /v1/instances/{id} to check when it becomes
+        `Healthy`.
+      operationId: createInstance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInstanceRequest'
+            example:
+              name: api-test-1
+              instances: 3
+              storageSize: 5Gi
+      responses:
+        '201':
+          description: Instance accepted and being provisioned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Instance'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    get:
+      tags: [Instances]
+      summary: List your product instances
+      description: Returns every instance owned by the authenticated user, regardless of phase.
+      operationId: listInstances
+      responses:
+        '200':
+          description: List of instances
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Instance'
+
+  /v1/instances/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The instance's unique name (same value provided at creation time).
+        schema:
+          type: string
+        example: api-test-1
+    get:
+      tags: [Instances]
+      summary: Get a single instance
+      description: Returns the current state of one instance, including its live phase.
+      operationId: getInstance
+      responses:
+        '200':
+          description: Instance details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Instance'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Instances]
+      summary: Delete a product instance
+      description: >
+        Deletes the instance. Deletion is asynchronous — the underlying pods,
+        volumes, and secrets are torn down by the operator shortly after this
+        call returns, not synchronously within it.
+      operationId: deleteInstance
+      responses:
+        '202':
+          description: Deletion accepted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/instances/{id}/connection:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The instance's unique name.
+        schema:
+          type: string
+        example: api-test-1
+    get:
+      tags: [Instances]
+      summary: Get connection and access data for an instance
+      description: >
+        Returns the host, port, database name, and credentials needed to
+        connect to this instance. Only available once the instance has
+        finished bootstrapping.
+      operationId: getInstanceConnection
+      responses:
+        '200':
+          description: Connection details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectionInfo'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Instance exists but hasn't finished provisioning yet — no credentials available
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token returned by POST /v1/auth/register or POST /v1/auth/login.
+
+  schemas:
+    Credentials:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: dev@example.com
+        password:
+          type: string
+          format: password
+          minLength: 8
+          example: hunter22
+
+    RegisterRequest:
+      type: object
+      required: [email, password, firstName, lastName]
+      properties:
+        email:
+          type: string
+          format: email
+          example: dev@example.com
+          description: Must be unique — registration fails with 409 if already taken.
+        password:
+          type: string
+          format: password
+          minLength: 8
+          example: hunter22
+        firstName:
+          type: string
+          example: Ada
+        lastName:
+          type: string
+          example: Lovelace
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: 'JWT bearer token — pass as `Authorization: Bearer <token>` on subsequent requests.'
+        expiresAt:
+          type: string
+          format: date-time
+
+    CreateInstanceRequest:
+      type: object
+      required: [name, instances, storageSize]
+      properties:
+        name:
+          type: string
+          pattern: '^[a-z][a-z0-9-]{0,9}$'
+          description: >
+            Unique instance name. Must start with a lowercase letter, contain
+            only lowercase letters/digits/hyphens, and be 11 characters or
+            fewer (a hard limit of the underlying SKE platform).
+          example: api-test-1
+        instances:
+          type: integer
+          minimum: 1
+          maximum: 5
+          description: Number of Postgres pods (1 primary + N-1 replicas) backing this instance.
+        storageSize:
+          type: string
+          example: "5Gi"
+          description: Disk size per Postgres pod, in Kubernetes quantity notation.
+
+    Instance:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique instance identifier (matches the name given at creation).
+        name:
+          type: string
+        phase:
+          type: string
+          enum: [Provisioning, Healthy, Degraded, Deleting]
+          description: Current lifecycle state, as reported by the underlying database operator.
+        instances:
+          type: integer
+          description: Desired number of Postgres pods.
+        readyInstances:
+          type: integer
+          description: Number of Postgres pods currently ready and serving traffic.
+        createdAt:
+          type: string
+          format: date-time
+
+    ConnectionInfo:
+      type: object
+      properties:
+        host:
+          type: string
+          description: In-cluster DNS name for the instance's primary (read/write) endpoint.
+          example: api-test-1-rw.cnpg-system.svc.cluster.local
+        port:
+          type: integer
+          example: 5432
+        database:
+          type: string
+          example: appdb
+        username:
+          type: string
+          example: appuser
+        password:
+          type: string
+          description: Auto-generated at instance creation. Not recoverable if lost — the instance must be recreated.
+
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Instance not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
