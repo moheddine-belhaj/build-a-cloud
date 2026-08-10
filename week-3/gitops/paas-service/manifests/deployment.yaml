@@ -18,9 +18,20 @@ spec:
         - name: paas-api-registry-pull
       containers:
         - name: paas-api
-          image: registry.onstackit.cloud/moheddine-paas/paas-api:v3
+          image: registry.onstackit.cloud/moheddine-paas/paas-api:v3.1
           ports:
             - containerPort: 8080
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: paas-control-app
+                  key: uri
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: paas-api-jwt
+                  key: secret
           resources:
             requests:
               cpu: 100m
