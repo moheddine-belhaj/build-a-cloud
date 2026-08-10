@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/moheddine-belhaj/build-a-cloud/week-3/api/internal/handlers"
-	"github.com/moheddine-belhaj/build-a-cloud/week-3/api/internal/k8s"
-	"github.com/moheddine-belhaj/build-a-cloud/week-3/api/internal/middleware"
-	"github.com/moheddine-belhaj/build-a-cloud/week-3/api/internal/store"
-	"github.com/moheddine-belhaj/build-a-cloud/week-3/api/internal/types"
+	"github.com/moheddine-belhaj/build-a-cloud/week-4/api/internal/handlers"
+	"github.com/moheddine-belhaj/build-a-cloud/week-4/api/internal/k8s"
+	"github.com/moheddine-belhaj/build-a-cloud/week-4/api/internal/middleware"
+	"github.com/moheddine-belhaj/build-a-cloud/week-4/api/internal/store"
+	"github.com/moheddine-belhaj/build-a-cloud/week-4/api/internal/types"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"

@@ -26,7 +26,7 @@ const swaggerUIHTML = `<!DOCTYPE html>
 </body>
 </html>`
 // readSpec tries the local dev path first (running via `go run` from
-// week-3/api), then the container path (where the Dockerfile copies it to
+// week-4/api), then the container path (where the Dockerfile copies it to
 // the filesystem root) works identically in both environments.
 func readSpec() ([]byte, error) {
 	for _, path := range []string{"openapi.yaml", "/openapi.yaml"} {

@@ -5,11 +5,11 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/moheddine-belhaj/build-a-cloud/week-3/api/internal/config"
-	"github.com/moheddine-belhaj/build-a-cloud/week-3/api/internal/db"
-	"github.com/moheddine-belhaj/build-a-cloud/week-3/api/internal/handlers"
-	"github.com/moheddine-belhaj/build-a-cloud/week-3/api/internal/k8s"
-	"github.com/moheddine-belhaj/build-a-cloud/week-3/api/internal/middleware"
+	"github.com/moheddine-belhaj/build-a-cloud/week-4/api/internal/config"
+	"github.com/moheddine-belhaj/build-a-cloud/week-4/api/internal/db"
+	"github.com/moheddine-belhaj/build-a-cloud/week-4/api/internal/handlers"
+	"github.com/moheddine-belhaj/build-a-cloud/week-4/api/internal/k8s"
+	"github.com/moheddine-belhaj/build-a-cloud/week-4/api/internal/middleware"
 )
 
 func main() {

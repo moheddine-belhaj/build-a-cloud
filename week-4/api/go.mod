@@ -1,4 +1,4 @@
-module github.com/moheddine-belhaj/build-a-cloud/week-3/api
+module github.com/moheddine-belhaj/build-a-cloud/week-4/api
 
 go 1.26.5
 

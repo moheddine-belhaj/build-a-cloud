@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/moheddine-belhaj/build-a-cloud/week-3/api/internal/types"
+	"github.com/moheddine-belhaj/build-a-cloud/week-4/api/internal/types"
 )
 
 const validRegisterBody = `{"email":"a@example.com","password":"hunter22","firstName":"Ada","lastName":"Lovelace"}`

@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/moheddine-belhaj/build-a-cloud/week-3/api/internal/auth"
-	"github.com/moheddine-belhaj/build-a-cloud/week-3/api/internal/store"
-	"github.com/moheddine-belhaj/build-a-cloud/week-3/api/internal/types"
+	"github.com/moheddine-belhaj/build-a-cloud/week-4/api/internal/auth"
+	"github.com/moheddine-belhaj/build-a-cloud/week-4/api/internal/store"
+	"github.com/moheddine-belhaj/build-a-cloud/week-4/api/internal/types"
 )
 
 func (s *Server) Register(w http.ResponseWriter, r *http.Request) {

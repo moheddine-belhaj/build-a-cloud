@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/moheddine-belhaj/build-a-cloud/week-3/api/internal/store"
+	"github.com/moheddine-belhaj/build-a-cloud/week-4/api/internal/store"
 )
 
 func (p *Postgres) RecordInstance(ctx context.Context, name string, ownerID int64) error {

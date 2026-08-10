@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/moheddine-belhaj/build-a-cloud/week-3/api/internal/store"
+	"github.com/moheddine-belhaj/build-a-cloud/week-4/api/internal/store"
 )
 
 func (p *Postgres) CreateUser(ctx context.Context, email, passwordHash, firstName, lastName string) (store.User, error) {
