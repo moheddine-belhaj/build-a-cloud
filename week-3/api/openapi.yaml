@@ -9,19 +9,79 @@ info:
     or more Postgres pods internally).
 
 tags:
+  - name: Auth
+    description: Register an account and obtain a JWT to use as a bearer token on all other endpoints.
   - name: Instances
-    description: Create, inspect, and remove product instances, and retrieve their connection details.
+    description: Create, inspect, and remove product instances, and retrieve their connection details. Each instance is scoped to the authenticated user who created it.
+
+security:
+  - bearerAuth: []
 
 paths:
+  /v1/auth/register:
+    post:
+      tags: [Auth]
+      summary: Create a new user account
+      operationId: registerUser
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: An account with this email already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: Exchange email/password for a JWT
+      operationId: loginUser
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Credentials'
+      responses:
+        '200':
+          description: Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid email or password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /v1/instances:
     post:
       tags: [Instances]
       summary: Create a new product instance
       description: >
-        Creates a new managed Postgres instance. Returns immediately once the
-        request is accepted and stored — the instance is not yet running at
-        this point (phase will be `Provisioning`). Poll GET /v1/instances/{id}
-        to check when it becomes `Healthy`.
+        Creates a new managed Postgres instance, owned by the authenticated
+        user. Returns immediately once the request is accepted and stored —
+        the instance is not yet running at this point (phase will be
+        `Provisioning`). Poll GET /v1/instances/{id} to check when it becomes
+        `Healthy`.
       operationId: createInstance
       requestBody:
         required: true
@@ -44,8 +104,8 @@ paths:
           $ref: '#/components/responses/BadRequest'
     get:
       tags: [Instances]
-      summary: List all product instances
-      description: Returns every instance currently known to the platform, regardless of phase.
+      summary: List your product instances
+      description: Returns every instance owned by the authenticated user, regardless of phase.
       operationId: listInstances
       responses:
         '200':
@@ -124,7 +184,59 @@ paths:
           description: Instance exists but hasn't finished provisioning yet — no credentials available
 
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token returned by POST /v1/auth/register or POST /v1/auth/login.
+
   schemas:
+    Credentials:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: dev@example.com
+        password:
+          type: string
+          format: password
+          minLength: 8
+          example: hunter22
+
+    RegisterRequest:
+      type: object
+      required: [email, password, firstName, lastName]
+      properties:
+        email:
+          type: string
+          format: email
+          example: dev@example.com
+          description: Must be unique — registration fails with 409 if already taken.
+        password:
+          type: string
+          format: password
+          minLength: 8
+          example: hunter22
+        firstName:
+          type: string
+          example: Ada
+        lastName:
+          type: string
+          example: Lovelace
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: 'JWT bearer token — pass as `Authorization: Bearer <token>` on subsequent requests.'
+        expiresAt:
+          type: string
+          format: date-time
+
     CreateInstanceRequest:
       type: object
       required: [name, instances, storageSize]
