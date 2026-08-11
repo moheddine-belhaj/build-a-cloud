@@ -1,0 +1,15 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: wildcard-paas
+  namespace: cnpg-system
+spec:
+  secretName: wildcard-paas-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: Issuer
+  commonName: '*.moheddine.runs.onstackit.cloud'
+  duration: 8760h0m0s
+  dnsNames:
+    - moheddine.runs.onstackit.cloud
+    - '*.moheddine.runs.onstackit.cloud'

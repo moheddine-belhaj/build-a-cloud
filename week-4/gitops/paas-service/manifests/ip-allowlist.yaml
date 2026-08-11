@@ -1,0 +1,9 @@
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: paas-api-allowlist
+  namespace: cnpg-system
+spec:
+  ipAllowList:
+    sourceRange:
+      - "188.244.102.157/32"

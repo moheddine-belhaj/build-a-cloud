@@ -1,0 +1,22 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: paas-api
+  namespace: cnpg-system
+spec:
+  ingressClassName: traefik # this is what tells Kubernetes which installed controller should handle this particular Ingress
+  tls:
+    - hosts:
+        - api.moheddine.runs.onstackit.cloud
+      secretName: wildcard-paas-tls
+  rules:
+    - host: api.moheddine.runs.onstackit.cloud
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: paas-api
+                port:
+                  number: 80
