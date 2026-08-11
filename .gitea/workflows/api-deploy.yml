@@ -3,7 +3,7 @@ name: api-deploy
 on:
   push:
     branches: [main]
-    paths: ['week-3/api/**']
+    paths: ['week-4/api/**']
   workflow_dispatch:
 
 jobs:
@@ -11,7 +11,7 @@ jobs:
     runs-on: stackit-ubuntu-22
     defaults:
       run:
-        working-directory: week-3/api
+        working-directory: week-4/api
 
     steps:
       - uses: actions/checkout@v4
@@ -19,7 +19,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: week-3/api/go.mod
+          go-version-file: week-4/api/go.mod
 
       - name: Build, vet, test
         run: |
@@ -44,7 +44,7 @@ jobs:
       - name: Build and push image
         uses: docker/build-push-action@v6
         with:
-          context: week-3/api
+          context: week-4/api
           push: true
           tags: registry.onstackit.cloud/moheddine-paas/paas-api:${{ steps.vars.outputs.tag }}
 
@@ -52,14 +52,14 @@ jobs:
         working-directory: .
         run: |
           sed -i "s#image: registry.onstackit.cloud/moheddine-paas/paas-api:.*#image: registry.onstackit.cloud/moheddine-paas/paas-api:${{ steps.vars.outputs.tag }}#" \
-            week-3/gitops/paas-service/manifests/deployment.yaml
+            week-4/gitops/paas-service/manifests/deployment.yaml
 
       - name: Commit and push manifest update
         working-directory: .
         run: |
           git config user.name "gitea-actions"
           git config user.email "actions@noreply.local"
-          git add week-3/gitops/paas-service/manifests/deployment.yaml
+          git add week-4/gitops/paas-service/manifests/deployment.yaml
           if git diff --cached --quiet; then
             echo "No manifest changes, skipping commit"
           else
