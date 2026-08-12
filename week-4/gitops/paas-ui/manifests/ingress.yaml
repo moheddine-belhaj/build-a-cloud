@@ -3,8 +3,6 @@ kind: Ingress
 metadata:
   name: paas-ui
   namespace: cnpg-system
-  annotations:
-    traefik.ingress.kubernetes.io/router.middlewares: cnpg-system-paas-ui-allowlist@kubernetescrd
 spec:
   ingressClassName: traefik
   tls:
