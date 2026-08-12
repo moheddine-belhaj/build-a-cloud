@@ -50,5 +50,5 @@ func main() {
 	}))
 
 	log.Println("listening on", cfg.Addr)
-	log.Fatal(http.ListenAndServe(cfg.Addr, middleware.Logging(mux)))
+	log.Fatal(http.ListenAndServe(cfg.Addr, middleware.Logging(middleware.CORS(mux))))
 }
