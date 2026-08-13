@@ -126,11 +126,13 @@ func (s *Server) CreateInstance(w http.ResponseWriter, r *http.Request) {
 	createdAt := obj.GetCreationTimestamp().Time
 	resp := types.Instance{
 		Id:             ptr(name),
+		Uid:            ptr(string(obj.GetUID())),
 		Name:           ptr(name),
 		Phase:          ptr(types.Provisioning),
 		Instances:      req.Instances,
 		ReadyInstances: ptr(0),
 		External:       ptr(len(req.AllowedIPs) > 0),
+		StorageSize:    req.StorageSize,
 		CreatedAt:      &createdAt,
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -166,11 +168,14 @@ func (s *Server) ListInstances(w http.ResponseWriter, r *http.Request) {
 		createdAt := item.GetCreationTimestamp().Time
 		out = append(out, types.Instance{
 			Id:             ptr(name),
+			Uid:            ptr(string(item.GetUID())),
 			Name:           ptr(name),
 			Phase:          ptr(types.InstancePhase(phase)),
 			Instances:      ptr(int(k8s.ExtractDesiredInstances(&item))),
 			ReadyInstances: ptr(int(k8s.ExtractReadyInstances(&item))),
 			External:       ptr(k8s.HasExternalService(r.Context(), s.dyn, name)),
+			Version:        ptr(k8s.ExtractVersion(&item)),
+			StorageSize:    ptr(k8s.ExtractStorageSize(&item)),
 			CreatedAt:      &createdAt,
 		})
 	}
@@ -193,11 +198,14 @@ func (s *Server) GetInstance(w http.ResponseWriter, r *http.Request, id string) 
 	createdAt := obj.GetCreationTimestamp().Time
 	resp := types.Instance{
 		Id:             ptr(name),
+		Uid:            ptr(string(obj.GetUID())),
 		Name:           ptr(name),
 		Phase:          ptr(types.InstancePhase(phase)),
 		Instances:      ptr(int(k8s.ExtractDesiredInstances(obj))),
 		ReadyInstances: ptr(int(k8s.ExtractReadyInstances(obj))),
 		External:       ptr(k8s.HasExternalService(r.Context(), s.dyn, name)),
+		Version:        ptr(k8s.ExtractVersion(obj)),
+		StorageSize:    ptr(k8s.ExtractStorageSize(obj)),
 		CreatedAt:      &createdAt,
 	}
 	w.Header().Set("Content-Type", "application/json")

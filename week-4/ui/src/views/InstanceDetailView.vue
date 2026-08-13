@@ -106,7 +106,28 @@ onUnmounted(() => {
       </div>
 
       <div class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 class="mb-4 text-sm font-semibold text-slate-900">General information</h2>
         <dl class="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <dt class="text-slate-500">Instance name</dt>
+            <dd class="text-slate-900">{{ instance.name }}</dd>
+          </div>
+          <div>
+            <dt class="text-slate-500">Instance ID</dt>
+            <dd class="font-mono text-xs text-slate-900">{{ instance.uid || instance.id }}</dd>
+          </div>
+          <div>
+            <dt class="text-slate-500">Version</dt>
+            <dd class="text-slate-900">{{ instance.version || '—' }}</dd>
+          </div>
+          <div>
+            <dt class="text-slate-500">Health</dt>
+            <dd><PhaseBadge :phase="instance.phase" /></dd>
+          </div>
+          <div>
+            <dt class="text-slate-500">Size</dt>
+            <dd class="text-slate-900">{{ instance.storageSize || '—' }}</dd>
+          </div>
           <div>
             <dt class="text-slate-500">Pods ready</dt>
             <dd class="text-slate-900">{{ instance.readyInstances }} / {{ instance.instances }}</dd>

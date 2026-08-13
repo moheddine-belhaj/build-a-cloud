@@ -2,6 +2,7 @@ package k8s
 
 import (
 	"context"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -84,4 +85,40 @@ func ExtractReadyInstances(u *unstructured.Unstructured) int64 {
 		return 0
 	}
 	return n
+}
+
+// ExtractStorageSize reads spec.storage.size, e.g. "5Gi" — the value
+// requested at creation time, set immediately, no operator status needed.
+func ExtractStorageSize(u *unstructured.Unstructured) string {
+	size, found, err := unstructured.NestedString(u.Object, "spec", "storage", "size")
+	if err != nil || !found {
+		return ""
+	}
+	return size
+}
+
+// ExtractVersion reads the Postgres version tag off the operand image the
+// operator is actually running (status.image), falling back to an
+// explicit spec.imageName override. Empty until the operator has resolved
+// and reported an image, which isn't yet the case on a freshly created
+// Cluster.
+func ExtractVersion(u *unstructured.Unstructured) string {
+	image, found, err := unstructured.NestedString(u.Object, "status", "image")
+	if err != nil || !found || image == "" {
+		image, found, err = unstructured.NestedString(u.Object, "spec", "imageName")
+		if err != nil || !found {
+			return ""
+		}
+	}
+
+	// image is a full ref like "ghcr.io/cloudnative-pg/postgresql:16.4" —
+	// split off the registry path first so a registry:port doesn't get
+	// mistaken for the tag separator.
+	segments := strings.Split(image, "/")
+	last := segments[len(segments)-1]
+	parts := strings.SplitN(last, ":", 2)
+	if len(parts) != 2 {
+		return ""
+	}
+	return parts[1]
 }

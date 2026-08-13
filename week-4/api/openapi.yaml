@@ -290,6 +290,13 @@ components:
         id:
           type: string
           description: Unique instance identifier (matches the name given at creation).
+        uid:
+          type: string
+          description: >
+            Kubernetes object UID backing this instance — a stable,
+            globally-unique identifier distinct from the name-based `id`.
+            Informational only; not accepted as input anywhere.
+          example: aab7b8d6-17a7-4187-a68d-92aa236e6a3a
         name:
           type: string
         phase:
@@ -309,6 +316,17 @@ components:
             dedicated external LoadBalancer Service. Does not by itself mean
             the external IP has finished being assigned — poll the
             connection endpoint for that.
+        version:
+          type: string
+          description: >
+            Postgres version tag of the image the operator is currently
+            running. Empty until the operator has resolved and reported an
+            image, which isn't yet the case on a freshly created instance.
+          example: "16.4"
+        storageSize:
+          type: string
+          description: Disk size per Postgres pod, as requested at creation time.
+          example: "5Gi"
         createdAt:
           type: string
           format: date-time

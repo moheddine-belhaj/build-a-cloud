@@ -25,11 +25,14 @@ type CreateInstanceRequest struct {
 
 type Instance struct {
 	Id             *string        `json:"id,omitempty"`
+	Uid            *string        `json:"uid,omitempty"`
 	Name           *string        `json:"name,omitempty"`
 	Phase          *InstancePhase `json:"phase,omitempty"`
 	Instances      *int           `json:"instances,omitempty"`
 	ReadyInstances *int           `json:"readyInstances,omitempty"`
 	External       *bool          `json:"external,omitempty"`
+	Version        *string        `json:"version,omitempty"`
+	StorageSize    *string        `json:"storageSize,omitempty"`
 	CreatedAt      *time.Time     `json:"createdAt,omitempty"`
 }
 

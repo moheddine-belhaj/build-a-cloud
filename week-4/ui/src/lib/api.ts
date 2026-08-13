@@ -69,12 +69,18 @@ export type InstancePhase = 'Provisioning' | 'Healthy' | 'Degraded' | 'Deleting'
 
 export interface Instance {
   id: string
+  /** Kubernetes object UID — stable, globally unique, distinct from the name-based `id`. Absent on older API deploys. */
+  uid?: string
   name: string
   phase: InstancePhase
   instances: number
   readyInstances: number
   /** Has a dedicated external LoadBalancer Service — doesn't by itself mean the IP is assigned yet. Absent on older API deploys. */
   external?: boolean
+  /** Postgres version tag currently running. Empty until the operator reports it. Absent on older API deploys. */
+  version?: string
+  /** Disk size per pod, as requested at creation. Absent on older API deploys. */
+  storageSize?: string
   createdAt: string
 }
 
