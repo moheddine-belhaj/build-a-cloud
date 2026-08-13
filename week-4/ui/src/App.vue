@@ -6,7 +6,7 @@ const auth = useAuthStore()
 </script>
 
 <template>
-  <AppShell v-if="!auth.isAuthenticated">
+  <AppShell v-if="auth.isAuthenticated">
     <RouterView />
   </AppShell>
   <RouterView v-else />
