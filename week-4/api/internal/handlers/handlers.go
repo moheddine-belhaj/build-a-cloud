@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"regexp"
+	"sort"
 	"time"
 
 	"github.com/moheddine-belhaj/build-a-cloud/week-4/api/internal/k8s"
@@ -330,9 +331,21 @@ func (s *Server) ListInstanceServices(w http.ResponseWriter, r *http.Request, id
 		return
 	}
 
-	out := make([]types.ServiceInfo, 0, len(list.Items))
+	summaries := make([]k8s.ServiceSummary, 0, len(list.Items)+1)
 	for i := range list.Items {
-		summary := k8s.SummarizeService(&list.Items[i])
+		summaries = append(summaries, k8s.SummarizeService(&list.Items[i]))
+	}
+	// The "<name>-external" LoadBalancer Service is managed by this API, not
+	// CNPG (see external_service.go), so it carries a different label than
+	// the "cnpg.io/cluster" one ListInstanceServices selects on — fetched
+	// separately here so it still shows up alongside the rw/ro/r endpoints.
+	if extSvc, err := k8s.GetExternalService(r.Context(), s.dyn, id); err == nil {
+		summaries = append(summaries, k8s.SummarizeService(extSvc))
+	}
+	sort.Slice(summaries, func(i, j int) bool { return summaries[i].Name < summaries[j].Name })
+
+	out := make([]types.ServiceInfo, 0, len(summaries))
+	for _, summary := range summaries {
 		ports := make([]types.ServicePort, 0, len(summary.Ports))
 		for _, p := range summary.Ports {
 			ports = append(ports, types.ServicePort{

@@ -610,6 +610,66 @@ func TestListInstanceServices(t *testing.T) {
 	}
 }
 
+func newExternalService(instanceName, ip string) *unstructured.Unstructured {
+	return &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "Service",
+		"metadata": map[string]interface{}{
+			"name":      instanceName + "-external",
+			"namespace": k8s.Namespace,
+			"labels": map[string]interface{}{
+				"paas.io/instance": instanceName,
+			},
+		},
+		"spec": map[string]interface{}{
+			"type": "LoadBalancer",
+			"ports": []interface{}{
+				map[string]interface{}{"name": "postgres", "port": int64(5432), "protocol": "TCP"},
+			},
+		},
+		"status": map[string]interface{}{
+			"loadBalancer": map[string]interface{}{
+				"ingress": []interface{}{
+					map[string]interface{}{"ip": ip},
+				},
+			},
+		},
+	}}
+}
+
+func TestListInstanceServices_IncludesExternal(t *testing.T) {
+	srv, _, st := newFakeServer(
+		newCluster("db-allow", "Healthy"),
+		newClusterService("db-allow", "-rw"),
+		newClusterService("db-allow", "-ro"),
+		newClusterService("db-allow", "-r"),
+		newExternalService("db-allow", "192.214.189.101"),
+	)
+	st.instances["db-allow"] = testUserID
+
+	req := withUser(httptest.NewRequest(http.MethodGet, "/v1/instances/db-allow/services", nil))
+	w := httptest.NewRecorder()
+
+	srv.ListInstanceServices(w, req, "db-allow")
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d, body=%s", w.Code, http.StatusOK, w.Body.String())
+	}
+	got := decode[[]types.ServiceInfo](t, w.Body)
+	if len(got) != 4 {
+		t.Fatalf("len(services) = %d, want 4, body=%s", len(got), w.Body.String())
+	}
+	if got[0].Name == nil || *got[0].Name != "db-allow-external" {
+		t.Errorf("services[0].name = %v, want db-allow-external (sorted first)", got[0].Name)
+	}
+	if got[0].Type == nil || *got[0].Type != "LoadBalancer" {
+		t.Errorf("services[0].type = %v, want LoadBalancer", got[0].Type)
+	}
+	if got[0].ExternalIP == nil || *got[0].ExternalIP != "192.214.189.101" {
+		t.Errorf("services[0].externalIP = %v, want 192.214.189.101", got[0].ExternalIP)
+	}
+}
+
 func TestListInstanceServices_NotOwner(t *testing.T) {
 	srv, _, st := newFakeServer(
 		newCluster("api-test-1", "Healthy"),

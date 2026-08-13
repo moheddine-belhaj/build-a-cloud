@@ -199,7 +199,7 @@ onUnmounted(() => {
       <div class="flex items-center justify-between">
         <h1 class="font-mono text-xl font-semibold text-foreground">{{ instance.name }}</h1>
         <div class="flex items-center gap-2">
-          <ExternalBadge :external="instance.external" />
+        <ExternalBadge :external="instance.external" />
           <PhaseBadge :phase="instance.phase" />
         </div>
       </div>
@@ -403,8 +403,9 @@ onUnmounted(() => {
         </div>
 
         <p class="mb-4 text-sm text-muted">
-          In-cluster Postgres Services CNPG manages for this instance — the primary
-          (read/write), read-only replica, and any-replica endpoints.
+          Postgres endpoints for this instance: the in-cluster primary (read/write),
+          read-only replica, and any-replica Services, plus the external LoadBalancer
+          endpoint if this instance has one.
         </p>
 
         <p v-if="servicesError" class="text-sm text-danger">{{ servicesError }}</p>
