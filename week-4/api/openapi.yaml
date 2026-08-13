@@ -239,7 +239,7 @@ components:
 
     CreateInstanceRequest:
       type: object
-      required: [name, instances, storageSize]
+      required: [name, instances, storageSize, storageClass, database, username]
       properties:
         name:
           type: string
@@ -258,6 +258,21 @@ components:
           type: string
           example: "5Gi"
           description: Disk size per Postgres pod, in Kubernetes quantity notation.
+        storageClass:
+          type: string
+          enum: [premium-perf4-stackit]
+          description: Kubernetes StorageClass backing each pod's volume. Currently only one is offered.
+          example: premium-perf4-stackit
+        database:
+          type: string
+          pattern: '^[a-zA-Z_][a-zA-Z0-9_]{0,62}$'
+          description: Name of the database created inside the instance at bootstrap time.
+          example: appdb
+        username:
+          type: string
+          pattern: '^[a-zA-Z_][a-zA-Z0-9_]{0,62}$'
+          description: Owner user created for the bootstrap database — this is what you authenticate as.
+          example: appuser
         allowedIPs:
           type: array
           items:
