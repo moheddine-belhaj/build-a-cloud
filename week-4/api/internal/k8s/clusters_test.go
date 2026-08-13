@@ -164,6 +164,9 @@ func TestExtractPhase(t *testing.T) {
 	}{
 		{"phase set", newCluster("c1", "Healthy"), "Healthy"},
 		{"no status", newCluster("c1", ""), "Provisioning"},
+		{"raw CNPG healthy phase", newCluster("c1", "Cluster in healthy state"), "Healthy"},
+		{"raw CNPG transient phase", newCluster("c1", "Setting up primary"), "Provisioning"},
+		{"raw CNPG unrecoverable phase", newCluster("c1", "Cluster is in an unrecoverable state, needs manual intervention"), "Degraded"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

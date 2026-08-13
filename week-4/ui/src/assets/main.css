@@ -1,1 +1,130 @@
 @import 'tailwindcss';
+
+/* Dark-first token system: bare :root carries the dark values (the default
+   for both the unstamped/system state and no-JS fallback). An OS light
+   preference flips it unless the toggle below has forced dark; the toggle's
+   explicit data-theme always wins in either direction. */
+:root {
+  --bg: #0a0e15;
+  --surface: #10161f;
+  --surface-2: #141b26;
+  --surface-hover: #1a2230;
+  --border: #232c3b;
+  --border-strong: #2e3a4e;
+  --text: #e7ecf3;
+  --text-muted: #8b96a8;
+  --text-faint: #5b6577;
+  --accent: #2fd1c4;
+  --accent-strong: #58e4d8;
+  --accent-soft: rgb(47 209 196 / 14%);
+  --accent-contrast: #04211e;
+  --danger: #f0655b;
+  --danger-soft: rgb(240 101 91 / 14%);
+  --warning: #e8b450;
+  --warning-soft: rgb(232 180 80 / 14%);
+  --success: #4ed0a0;
+  --success-soft: rgb(78 208 160 / 14%);
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    --bg: #f3f5f8;
+    --surface: #ffffff;
+    --surface-2: #ffffff;
+    --surface-hover: #eef1f5;
+    --border: #dfe4ea;
+    --border-strong: #c7cfda;
+    --text: #131a24;
+    --text-muted: #5c6879;
+    --text-faint: #93a0b0;
+    --accent: #0e9c8f;
+    --accent-strong: #0b8177;
+    --accent-soft: #dff7f3;
+    --accent-contrast: #ffffff;
+    --danger: #d6473c;
+    --danger-soft: #fbe4e1;
+    --warning: #b8790e;
+    --warning-soft: #fbeed9;
+    --success: #148f6b;
+    --success-soft: #ddf3e9;
+    color-scheme: light;
+  }
+}
+
+:root[data-theme='light'] {
+  --bg: #f3f5f8;
+  --surface: #ffffff;
+  --surface-2: #ffffff;
+  --surface-hover: #eef1f5;
+  --border: #dfe4ea;
+  --border-strong: #c7cfda;
+  --text: #131a24;
+  --text-muted: #5c6879;
+  --text-faint: #93a0b0;
+  --accent: #0e9c8f;
+  --accent-strong: #0b8177;
+  --accent-soft: #dff7f3;
+  --accent-contrast: #ffffff;
+  --danger: #d6473c;
+  --danger-soft: #fbe4e1;
+  --warning: #b8790e;
+  --warning-soft: #fbeed9;
+  --success: #148f6b;
+  --success-soft: #ddf3e9;
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --bg: #0a0e15;
+  --surface: #10161f;
+  --surface-2: #141b26;
+  --surface-hover: #1a2230;
+  --border: #232c3b;
+  --border-strong: #2e3a4e;
+  --text: #e7ecf3;
+  --text-muted: #8b96a8;
+  --text-faint: #5b6577;
+  --accent: #2fd1c4;
+  --accent-strong: #58e4d8;
+  --accent-soft: rgb(47 209 196 / 14%);
+  --accent-contrast: #04211e;
+  --danger: #f0655b;
+  --danger-soft: rgb(240 101 91 / 14%);
+  --warning: #e8b450;
+  --warning-soft: rgb(232 180 80 / 14%);
+  --success: #4ed0a0;
+  --success-soft: rgb(78 208 160 / 14%);
+  color-scheme: dark;
+}
+
+/* Maps the runtime tokens above into real Tailwind utilities (bg-surface,
+   text-muted, border-border, etc.) — "inline" because the values are CSS
+   variables that change at runtime (theme toggle), not static build-time
+   colors. */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-hover: var(--surface-hover);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-foreground: var(--text);
+  --color-muted: var(--text-muted);
+  --color-faint: var(--text-faint);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-contrast: var(--accent-contrast);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+}

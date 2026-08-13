@@ -13,7 +13,7 @@ function logout() {
 
 <template>
   <div class="min-h-screen bg-slate-50">
-    <header v-if="auth.isAuthenticated" class="border-b border-slate-200 bg-white">
+    <header v-if="!auth.isAuthenticated" class="border-b border-slate-200 bg-white">
       <div class="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
         <RouterLink to="/instances" class="text-sm font-semibold text-slate-900">
           PaaS Console

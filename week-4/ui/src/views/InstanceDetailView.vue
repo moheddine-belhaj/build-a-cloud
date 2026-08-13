@@ -4,6 +4,7 @@ import { useRouter, RouterLink } from 'vue-router'
 import { instancesApi, ApiError, type Instance, type ConnectionInfo, type UpdateInstanceRequest } from '@/lib/api'
 import PhaseBadge from '@/components/PhaseBadge.vue'
 import ExternalBadge from '@/components/ExternalBadge.vue'
+import CopyButton from '@/components/CopyButton.vue'
 import { isValidCidr } from '@/lib/cidr'
 
 const props = defineProps<{ id: string }>()
@@ -163,28 +164,28 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="mx-auto max-w-3xl px-4 py-8">
-    <RouterLink to="/instances" class="mb-4 inline-block text-sm text-slate-500 hover:underline"
-      >&larr; Back to instances</RouterLink
+  <div class="mx-auto max-w-3xl px-6 py-8 lg:px-10">
+    <RouterLink to="/instances" class="mb-4 inline-flex items-center gap-1 text-sm text-muted hover:text-foreground"
+      ><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7" /></svg>Back to instances</RouterLink
     >
 
-    <p v-if="loadError" class="mb-4 text-sm text-red-600">{{ loadError }}</p>
+    <p v-if="loadError" class="mb-4 text-sm text-danger">{{ loadError }}</p>
 
     <div v-if="instance" class="space-y-6">
       <div class="flex items-center justify-between">
-        <h1 class="text-xl font-semibold text-slate-900">{{ instance.name }}</h1>
+        <h1 class="font-mono text-xl font-semibold text-foreground">{{ instance.name }}</h1>
         <div class="flex items-center gap-2">
           <ExternalBadge :external="instance.external" />
           <PhaseBadge :phase="instance.phase" />
         </div>
       </div>
 
-      <div class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+      <div class="rounded-lg border border-border bg-surface-2 p-6 shadow-sm">
         <div class="mb-4 flex items-center justify-between">
-          <h2 class="text-sm font-semibold text-slate-900">General information</h2>
+          <h2 class="text-sm font-semibold text-foreground">General information</h2>
           <button
             v-if="!editing"
-            class="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700"
+            class="rounded-md bg-accent px-3 py-1.5 text-sm font-semibold text-accent-contrast hover:bg-accent-strong"
             @click="startEdit"
           >
             Edit
@@ -193,39 +194,42 @@ onUnmounted(() => {
 
         <dl class="grid grid-cols-2 gap-4 text-sm">
           <div>
-            <dt class="text-slate-500">Instance name</dt>
-            <dd class="text-slate-900">{{ instance.name }}</dd>
+            <dt class="text-muted">Instance name</dt>
+            <dd class="font-mono text-foreground">{{ instance.name }}</dd>
           </div>
           <div>
-            <dt class="text-slate-500">Instance ID</dt>
-            <dd class="font-mono text-xs text-slate-900">{{ instance.uid || instance.id }}</dd>
+            <dt class="text-muted">Instance ID</dt>
+            <dd class="flex items-center gap-2">
+              <span class="truncate font-mono text-xs text-foreground">{{ instance.uid || instance.id }}</span>
+              <CopyButton :text="instance.uid || instance.id" />
+            </dd>
           </div>
           <div>
-            <dt class="text-slate-500">Version</dt>
-            <dd class="text-slate-900">{{ instance.version || '—' }}</dd>
+            <dt class="text-muted">Version</dt>
+            <dd class="text-foreground">{{ instance.version || '—' }}</dd>
           </div>
           <div>
-            <dt class="text-slate-500">Health</dt>
+            <dt class="text-muted">Health</dt>
             <dd><PhaseBadge :phase="instance.phase" /></dd>
           </div>
           <div>
-            <dt class="text-slate-500">Size</dt>
-            <dd class="text-slate-900">{{ instance.storageSize || '—' }}</dd>
+            <dt class="text-muted">Size</dt>
+            <dd class="font-mono text-foreground">{{ instance.storageSize || '—' }}</dd>
           </div>
           <div>
-            <dt class="text-slate-500">Pods ready</dt>
-            <dd class="text-slate-900">{{ instance.readyInstances }} / {{ instance.instances }}</dd>
+            <dt class="text-muted">Pods ready</dt>
+            <dd class="text-foreground">{{ instance.readyInstances }} / {{ instance.instances }}</dd>
           </div>
           <div>
-            <dt class="text-slate-500">Created</dt>
-            <dd class="text-slate-900">{{ new Date(instance.createdAt).toLocaleString() }}</dd>
+            <dt class="text-muted">Created</dt>
+            <dd class="text-foreground">{{ new Date(instance.createdAt).toLocaleString() }}</dd>
           </div>
         </dl>
 
-        <form v-if="editing" class="mt-6 space-y-4 border-t border-slate-100 pt-6" @submit.prevent="onSaveEdit">
+        <form v-if="editing" class="mt-6 space-y-4 border-t border-border pt-6" @submit.prevent="onSaveEdit">
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label for="editPodCount" class="mb-1 block text-sm font-medium text-slate-700">Pods</label>
+              <label for="editPodCount" class="mb-1 block text-sm font-medium text-muted">Pods</label>
               <input
                 id="editPodCount"
                 v-model.number="editPodCount"
@@ -233,11 +237,11 @@ onUnmounted(() => {
                 min="1"
                 max="5"
                 required
-                class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+                class="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent-soft"
               />
             </div>
             <div>
-              <label for="editStorageSize" class="mb-1 block text-sm font-medium text-slate-700"
+              <label for="editStorageSize" class="mb-1 block text-sm font-medium text-muted"
                 >Storage per pod</label
               >
               <input
@@ -245,16 +249,16 @@ onUnmounted(() => {
                 v-model="editStorageSize"
                 type="text"
                 required
-                class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+                class="w-full rounded-md border border-border bg-surface px-3 py-2 font-mono text-sm text-foreground focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent-soft"
               />
-              <p class="mt-1 text-xs text-slate-400">
+              <p class="mt-1 text-xs text-faint">
                 Can only increase from the current {{ instance.storageSize || 'size' }}, never decrease.
               </p>
             </div>
           </div>
 
           <div>
-            <label for="editAllowedIPs" class="mb-1 block text-sm font-medium text-slate-700"
+            <label for="editAllowedIPs" class="mb-1 block text-sm font-medium text-muted"
               >Allowed IPs</label
             >
             <input
@@ -262,27 +266,27 @@ onUnmounted(() => {
               v-model="editAllowedIPsInput"
               type="text"
               placeholder="203.0.113.0/24, 198.51.100.42/32"
-              class="w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-sm focus:border-slate-500 focus:outline-none"
+              class="w-full rounded-md border border-border bg-surface px-3 py-2 font-mono text-sm text-foreground focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent-soft"
             />
-            <p class="mt-1 text-xs text-slate-400">
+            <p class="mt-1 text-xs text-faint">
               Comma-separated CIDR ranges. Clear this field entirely to remove external access.
             </p>
           </div>
 
-          <p v-if="editError" class="text-sm text-red-600">{{ editError }}</p>
+          <p v-if="editError" class="text-sm text-danger">{{ editError }}</p>
 
           <div class="flex items-center gap-2">
             <button
               type="submit"
               :disabled="saving"
-              class="rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
+              class="rounded-md bg-accent px-3 py-2 text-sm font-semibold text-accent-contrast hover:bg-accent-strong disabled:opacity-50"
             >
               {{ saving ? 'Saving…' : 'Save changes' }}
             </button>
             <button
               type="button"
               :disabled="saving"
-              class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              class="rounded-md border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-surface-hover disabled:opacity-50"
               @click="cancelEdit"
             >
               Cancel
@@ -291,20 +295,20 @@ onUnmounted(() => {
         </form>
       </div>
 
-      <div class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+      <div class="rounded-lg border border-border bg-surface-2 p-6 shadow-sm">
         <div class="mb-4 flex items-center justify-between">
-          <h2 class="text-sm font-semibold text-slate-900">Connection details</h2>
+          <h2 class="text-sm font-semibold text-foreground">Connection details</h2>
           <button
             v-if="!connection"
             :disabled="loadingConnection"
-            class="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
+            class="rounded-md bg-accent px-3 py-1.5 text-sm font-semibold text-accent-contrast hover:bg-accent-strong disabled:opacity-50"
             @click="loadConnection"
           >
             {{ loadingConnection ? 'Loading…' : 'Reveal' }}
           </button>
         </div>
 
-        <p v-if="!connection" class="mb-4 text-sm text-slate-500">
+        <p v-if="!connection" class="mb-4 text-sm text-muted">
           {{
             instance.external
               ? 'This instance has a public endpoint, reachable from the IP ranges allowed at creation time.'
@@ -312,53 +316,50 @@ onUnmounted(() => {
           }}
         </p>
 
-        <p v-if="connectionError" class="text-sm text-red-600">{{ connectionError }}</p>
+        <p v-if="connectionError" class="text-sm text-danger">{{ connectionError }}</p>
 
-        <div v-if="connection" class="mb-4 flex items-center gap-2 rounded-md bg-slate-50 p-3">
-          <code class="flex-1 truncate font-mono text-xs text-slate-700">{{ connectionString }}</code>
+        <div v-if="connection" class="mb-4 flex items-center gap-2 rounded-md border border-border bg-surface p-3">
+          <code class="flex-1 truncate font-mono text-xs text-muted">{{ connectionString }}</code>
           <button
-            class="shrink-0 rounded-md bg-slate-900 px-2.5 py-1 text-xs font-medium text-white hover:bg-slate-700"
+            class="flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors"
+            :class="copiedConnectionString ? 'bg-success text-accent-contrast' : 'bg-accent text-accent-contrast hover:bg-accent-strong'"
             @click="copyConnectionString"
           >
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2" /><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3" /></svg>
             {{ copiedConnectionString ? 'Copied!' : 'Copy connection string' }}
           </button>
         </div>
 
         <dl v-if="connection" class="space-y-3 text-sm">
-          <div class="flex items-center justify-between">
-            <dt class="text-slate-500">Host</dt>
-            <dd class="flex items-center gap-2 font-mono text-slate-900">
-              {{ connection.host }}
-              <button class="text-slate-400 hover:text-slate-700" @click="copy(connection.host)">
-                copy
-              </button>
+          <div class="flex items-start justify-between gap-3">
+            <dt class="shrink-0 text-muted">Host</dt>
+            <dd class="flex min-w-0 flex-wrap items-center justify-end gap-2 font-mono text-foreground">
+              <span class="break-all text-right">{{ connection.host }}</span>
+              <CopyButton :text="connection.host" />
             </dd>
           </div>
           <div class="flex items-center justify-between">
-            <dt class="text-slate-500">Port</dt>
-            <dd class="font-mono text-slate-900">{{ connection.port }}</dd>
+            <dt class="text-muted">Port</dt>
+            <dd class="font-mono text-foreground">{{ connection.port }}</dd>
           </div>
           <div class="flex items-center justify-between">
-            <dt class="text-slate-500">Database</dt>
-            <dd class="font-mono text-slate-900">{{ connection.database }}</dd>
+            <dt class="text-muted">Database</dt>
+            <dd class="font-mono text-foreground">{{ connection.database }}</dd>
           </div>
           <div class="flex items-center justify-between">
-            <dt class="text-slate-500">Username</dt>
-            <dd class="font-mono text-slate-900">{{ connection.username }}</dd>
+            <dt class="text-muted">Username</dt>
+            <dd class="font-mono text-foreground">{{ connection.username }}</dd>
           </div>
-          <div class="flex items-center justify-between">
-            <dt class="text-slate-500">Password</dt>
-            <dd class="flex items-center gap-2 font-mono text-slate-900">
-              {{ showPassword ? connection.password : '••••••••••' }}
-              <button class="text-slate-400 hover:text-slate-700" @click="showPassword = !showPassword">
-                {{ showPassword ? 'hide' : 'show' }}
-              </button>
-              <button
-                class="text-slate-400 hover:text-slate-700"
-                @click="copy(connection.password)"
-              >
-                copy
-              </button>
+          <div class="flex items-start justify-between gap-3">
+            <dt class="shrink-0 text-muted">Password</dt>
+            <dd class="flex min-w-0 flex-wrap items-center justify-end gap-2 font-mono text-foreground">
+              <span class="break-all text-right">{{ showPassword ? connection.password : '••••••••••' }}</span>
+              <span class="flex shrink-0 items-center gap-2">
+                <button class="text-xs text-faint hover:text-foreground" @click="showPassword = !showPassword">
+                  {{ showPassword ? 'hide' : 'show' }}
+                </button>
+                <CopyButton :text="connection.password" />
+              </span>
             </dd>
           </div>
         </dl>
@@ -367,7 +368,7 @@ onUnmounted(() => {
       <div class="flex justify-end">
         <button
           :disabled="deleting"
-          class="rounded-md border border-red-300 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+          class="rounded-md border border-border px-3 py-2 text-sm font-medium text-danger hover:bg-danger-soft disabled:opacity-50"
           @click="onDelete"
         >
           {{ deleting ? 'Deleting…' : 'Delete instance' }}

@@ -61,13 +61,32 @@ func DeleteCluster(ctx context.Context, dyn dynamic.Interface, name string) erro
 	return dyn.Resource(ClusterGVR).Namespace(Namespace).Delete(ctx, name, metav1.DeleteOptions{})
 }
 
-// helper to pull fields back out of the unstructured object safely
+// ExtractPhase reads the Cluster's live status and normalizes CNPG's raw,
+// free-text phase strings (e.g. "Cluster in healthy state", "Setting up
+// primary") into this API's documented Provisioning/Healthy/Degraded enum.
+// The raw strings don't match that enum and were leaking to clients as-is —
+// a fully healthy cluster showed as an unstyled, uncolored badge because
+// nothing matched "Healthy" exactly.
 func ExtractPhase(u *unstructured.Unstructured) string {
 	phase, found, err := unstructured.NestedString(u.Object, "status", "phase")
-	if err != nil || !found {
+	if err != nil || !found || phase == "" {
 		return "Provisioning"
 	}
-	return phase
+
+	lower := strings.ToLower(phase)
+	switch {
+	case strings.Contains(lower, "healthy"):
+		return "Healthy"
+	case strings.Contains(lower, "unrecoverable"),
+		strings.Contains(lower, "error"),
+		strings.Contains(lower, "cannot determine"):
+		return "Degraded"
+	default:
+		// Every other CNPG phase ("Setting up primary", "Creating a new
+		// replica", "Upgrading cluster", "Applying configuration", ...) is a
+		// transient working state.
+		return "Provisioning"
+	}
 }
 
 // ExtractDesiredInstances reads spec.instances — the pod count that was

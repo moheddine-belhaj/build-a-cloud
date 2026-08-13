@@ -6,9 +6,9 @@ withDefaults(defineProps<{ external?: boolean }>(), { external: false })
 
 <template>
   <span
-    class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
-    :class="external ? 'bg-sky-100 text-sky-800' : 'bg-slate-100 text-slate-600'"
+    class="inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide"
+    :class="external ? 'bg-accent-soft text-accent' : 'border border-border bg-surface text-faint'"
   >
-    {{ external ? 'Public' : 'Internal' }}
+    {{ external ? 'External' : 'Internal' }}
   </span>
 </template>
