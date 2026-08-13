@@ -61,7 +61,22 @@ jobs:
           git add week-4/gitops/paas-ui/manifests/deployment.yaml
           if git diff --cached --quiet; then
             echo "No manifest changes, skipping commit"
-          else
-            git commit -m "chore: deploy paas-ui ${{ steps.vars.outputs.tag }}"
-            git push
+            exit 0
           fi
+          git commit -m "chore: deploy paas-ui ${{ steps.vars.outputs.tag }}"
+
+          # main can move between checkout and here (build+test+docker take
+          # real time) — a bare push then fails non-fast-forward and the
+          # image we just built silently never gets deployed. Retry with a
+          # rebase instead of failing the job.
+          for i in 1 2 3 4 5; do
+            if git push; then
+              exit 0
+            fi
+            echo "Push rejected (attempt $i/5) — fetching and rebasing"
+            git fetch origin main
+            git rebase origin/main
+            sleep $((i * 2))
+          done
+          echo "Failed to push manifest update after retries" >&2
+          exit 1
