@@ -14,9 +14,10 @@ const (
 
 type CreateInstanceRequest struct {
 	// Name must be <=11 chars (SKE-style naming constraint you already hit once)
-	Name        string  `json:"name"`
-	Instances   *int    `json:"instances,omitempty"`
-	StorageSize *string `json:"storageSize,omitempty"`
+	Name        string   `json:"name"`
+	Instances   *int     `json:"instances,omitempty"`
+	StorageSize *string  `json:"storageSize,omitempty"`
+	AllowedIPs  []string `json:"allowedIPs,omitempty"`
 }
 
 type Instance struct {
@@ -25,6 +26,7 @@ type Instance struct {
 	Phase          *InstancePhase `json:"phase,omitempty"`
 	Instances      *int           `json:"instances,omitempty"`
 	ReadyInstances *int           `json:"readyInstances,omitempty"`
+	External       *bool          `json:"external,omitempty"`
 	CreatedAt      *time.Time     `json:"createdAt,omitempty"`
 }
 

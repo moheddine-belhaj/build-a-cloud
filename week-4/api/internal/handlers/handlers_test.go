@@ -3,6 +3,7 @@ package handlers_test
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -375,15 +376,80 @@ func TestDeleteInstance_NotFound(t *testing.T) {
 	}
 }
 
-func TestGetInstanceConnection(t *testing.T) {
-	srv, _, _ := newFakeServer(newCluster("api-test-1", "Healthy"))
+func newAppSecret(instanceName, username, password, dbname string) *unstructured.Unstructured {
+	enc := func(s string) string { return base64.StdEncoding.EncodeToString([]byte(s)) }
+	return &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "Secret",
+		"metadata": map[string]interface{}{
+			"name":      instanceName + "-app",
+			"namespace": k8s.Namespace,
+		},
+		"data": map[string]interface{}{
+			"username": enc(username),
+			"password": enc(password),
+			"dbname":   enc(dbname),
+		},
+	}}
+}
+
+func TestGetInstanceConnection_NotReady(t *testing.T) {
+	srv, _, st := newFakeServer(newCluster("api-test-1", "Provisioning"))
+	st.instances["api-test-1"] = testUserID
 
 	req := withUser(httptest.NewRequest(http.MethodGet, "/v1/instances/api-test-1/connection", nil))
 	w := httptest.NewRecorder()
 
 	srv.GetInstanceConnection(w, req, "api-test-1")
 
-	if w.Code != http.StatusNotImplemented {
-		t.Fatalf("status = %d, want %d", w.Code, http.StatusNotImplemented)
+	if w.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusConflict)
+	}
+}
+
+func TestGetInstanceConnection_InClusterHost(t *testing.T) {
+	srv, _, st := newFakeServer(
+		newCluster("api-test-1", "Cluster in healthy state"),
+		newAppSecret("api-test-1", "appuser", "s3cret", "appdb"),
+	)
+	st.instances["api-test-1"] = testUserID
+
+	req := withUser(httptest.NewRequest(http.MethodGet, "/v1/instances/api-test-1/connection", nil))
+	w := httptest.NewRecorder()
+
+	srv.GetInstanceConnection(w, req, "api-test-1")
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d, body=%s", w.Code, http.StatusOK, w.Body.String())
+	}
+	got := decode[types.ConnectionInfo](t, w.Body)
+	if got.Host == nil || *got.Host != "api-test-1-rw.cnpg-system.svc.cluster.local" {
+		t.Errorf("host = %v, want in-cluster DNS name", got.Host)
+	}
+	if got.Username == nil || *got.Username != "appuser" {
+		t.Errorf("username = %v, want appuser", got.Username)
+	}
+	if got.Password == nil || *got.Password != "s3cret" {
+		t.Errorf("password = %v, want s3cret", got.Password)
+	}
+	if got.Database == nil || *got.Database != "appdb" {
+		t.Errorf("database = %v, want appdb", got.Database)
+	}
+}
+
+func TestGetInstanceConnection_NotOwner(t *testing.T) {
+	srv, _, st := newFakeServer(
+		newCluster("api-test-1", "Healthy"),
+		newAppSecret("api-test-1", "appuser", "s3cret", "appdb"),
+	)
+	st.instances["api-test-1"] = testUserID + 1
+
+	req := withUser(httptest.NewRequest(http.MethodGet, "/v1/instances/api-test-1/connection", nil))
+	w := httptest.NewRecorder()
+
+	srv.GetInstanceConnection(w, req, "api-test-1")
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusNotFound)
 	}
 }
