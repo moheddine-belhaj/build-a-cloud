@@ -2,7 +2,7 @@ terraform {
   required_providers {
     stackit = {
       source  = "stackitcloud/stackit"
-      version = "~> 0.104"
+      version = "= 0.107.1"
     }
   }
   backend "s3" {

@@ -26,6 +26,13 @@ resource "stackit_ske_cluster" "ske_cluster" {
     start = "01:00:00Z"
     end   = "02:00:00Z"
   }
+
+  extensions = {
+    acl = {
+      enabled       = true
+      allowed_cidrs = ["188.244.102.157/32"]
+    }
+  }
 }
 
 # Resource: SKE kubeconfig
