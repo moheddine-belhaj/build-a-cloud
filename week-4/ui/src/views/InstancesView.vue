@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import { instancesApi, ApiError, type Instance } from '@/lib/api'
+import { instancesApi, ApiError, STORAGE_CLASSES, type Instance } from '@/lib/api'
 import PhaseBadge from '@/components/PhaseBadge.vue'
 import ExternalBadge from '@/components/ExternalBadge.vue'
 import { isValidCidr } from '@/lib/cidr'
+import { isValidIdentifier } from '@/lib/identifier'
 
 const instances = ref<Instance[]>([])
 const loading = ref(true)
@@ -14,6 +15,10 @@ const showCreateForm = ref(false)
 const name = ref('')
 const podCount = ref(1)
 const storageSize = ref('5Gi')
+const storageClass = ref<string>(STORAGE_CLASSES[0])
+const database = ref('')
+const username = ref('')
+const identifierError = ref('')
 const allowedIPsInput = ref('')
 const allowedIPsError = ref('')
 const fetchingIP = ref(false)
@@ -63,6 +68,16 @@ async function refresh() {
 async function onCreate() {
   createError.value = ''
   allowedIPsError.value = ''
+  identifierError.value = ''
+
+  if (!isValidIdentifier(database.value)) {
+    identifierError.value = 'Database name must start with a letter/underscore and contain only letters, digits, underscores.'
+    return
+  }
+  if (!isValidIdentifier(username.value)) {
+    identifierError.value = 'Username must start with a letter/underscore and contain only letters, digits, underscores.'
+    return
+  }
 
   const allowedIPs = parseAllowedIPs()
   const invalid = allowedIPs.filter((cidr) => !isValidCidr(cidr))
@@ -77,11 +92,17 @@ async function onCreate() {
       name: name.value,
       instances: podCount.value,
       storageSize: storageSize.value,
+      storageClass: storageClass.value,
+      database: database.value,
+      username: username.value,
       allowedIPs: allowedIPs.length > 0 ? allowedIPs : undefined,
     })
     name.value = ''
     podCount.value = 1
     storageSize.value = '5Gi'
+    storageClass.value = STORAGE_CLASSES[0]
+    database.value = ''
+    username.value = ''
     allowedIPsInput.value = ''
     showCreateForm.value = false
     await refresh()
@@ -177,6 +198,50 @@ onUnmounted(() => {
           />
         </div>
       </div>
+
+      <div>
+        <label for="storageClass" class="mb-1 block text-sm font-medium text-slate-700"
+          >Storage class</label
+        >
+        <select
+          id="storageClass"
+          v-model="storageClass"
+          required
+          class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
+        >
+          <option v-for="sc in STORAGE_CLASSES" :key="sc" :value="sc">{{ sc }}</option>
+        </select>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label for="database" class="mb-1 block text-sm font-medium text-slate-700"
+            >Database name</label
+          >
+          <input
+            id="database"
+            v-model="database"
+            type="text"
+            required
+            placeholder="mydb"
+            class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-mono focus:border-slate-500 focus:outline-none"
+          />
+        </div>
+        <div>
+          <label for="username" class="mb-1 block text-sm font-medium text-slate-700"
+            >Username</label
+          >
+          <input
+            id="username"
+            v-model="username"
+            type="text"
+            required
+            placeholder="myuser"
+            class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-mono focus:border-slate-500 focus:outline-none"
+          />
+        </div>
+      </div>
+      <p v-if="identifierError" class="text-xs text-red-600">{{ identifierError }}</p>
 
       <div>
         <div class="mb-1 flex items-center justify-between">
