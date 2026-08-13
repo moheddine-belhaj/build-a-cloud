@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net"
@@ -12,6 +13,7 @@ import (
 	"github.com/moheddine-belhaj/build-a-cloud/week-4/api/internal/middleware"
 	"github.com/moheddine-belhaj/build-a-cloud/week-4/api/internal/store"
 	"github.com/moheddine-belhaj/build-a-cloud/week-4/api/internal/types"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/dynamic"
 )
 
@@ -164,20 +166,7 @@ func (s *Server) ListInstances(w http.ResponseWriter, r *http.Request) {
 		if !owned[name] {
 			continue
 		}
-		phase := k8s.ExtractPhase(&item)
-		createdAt := item.GetCreationTimestamp().Time
-		out = append(out, types.Instance{
-			Id:             ptr(name),
-			Uid:            ptr(string(item.GetUID())),
-			Name:           ptr(name),
-			Phase:          ptr(types.InstancePhase(phase)),
-			Instances:      ptr(int(k8s.ExtractDesiredInstances(&item))),
-			ReadyInstances: ptr(int(k8s.ExtractReadyInstances(&item))),
-			External:       ptr(k8s.HasExternalService(r.Context(), s.dyn, name)),
-			Version:        ptr(k8s.ExtractVersion(&item)),
-			StorageSize:    ptr(k8s.ExtractStorageSize(&item)),
-			CreatedAt:      &createdAt,
-		})
+		out = append(out, s.instanceFromCluster(r.Context(), &item))
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(out)
@@ -193,21 +182,104 @@ func (s *Server) GetInstance(w http.ResponseWriter, r *http.Request, id string) 
 		http.Error(w, `{"message":"instance not found"}`, http.StatusNotFound)
 		return
 	}
+	resp := s.instanceFromCluster(r.Context(), obj)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
+// instanceFromCluster builds the API's Instance view straight off a live
+// Cluster object — shared by every endpoint that returns full instance
+// state (list, get, update) so they can't drift from each other.
+func (s *Server) instanceFromCluster(ctx context.Context, obj *unstructured.Unstructured) types.Instance {
 	name := obj.GetName()
-	phase := k8s.ExtractPhase(obj)
 	createdAt := obj.GetCreationTimestamp().Time
-	resp := types.Instance{
+
+	external := false
+	var allowedIPs []string
+	if extSvc, err := k8s.GetExternalService(ctx, s.dyn, name); err == nil {
+		external = true
+		allowedIPs = k8s.ExtractSourceRanges(extSvc)
+	}
+
+	return types.Instance{
 		Id:             ptr(name),
 		Uid:            ptr(string(obj.GetUID())),
 		Name:           ptr(name),
-		Phase:          ptr(types.InstancePhase(phase)),
+		Phase:          ptr(types.InstancePhase(k8s.ExtractPhase(obj))),
 		Instances:      ptr(int(k8s.ExtractDesiredInstances(obj))),
 		ReadyInstances: ptr(int(k8s.ExtractReadyInstances(obj))),
-		External:       ptr(k8s.HasExternalService(r.Context(), s.dyn, name)),
+		External:       ptr(external),
+		AllowedIPs:     allowedIPs,
 		Version:        ptr(k8s.ExtractVersion(obj)),
 		StorageSize:    ptr(k8s.ExtractStorageSize(obj)),
 		CreatedAt:      &createdAt,
 	}
+}
+
+// UpdateInstance applies a partial update: pod count and storage size are
+// patched directly onto the Cluster CR, while allowedIPs is reconciled
+// against the separate <name>-external Service. name, storageClass,
+// database, and username can't be changed after creation, so they're not
+// accepted here.
+func (s *Server) UpdateInstance(w http.ResponseWriter, r *http.Request, id string) {
+	if !s.authorizeOwner(w, r, id) {
+		return
+	}
+
+	var req types.UpdateInstanceRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if req.Instances == nil && req.StorageSize == nil && req.AllowedIPs == nil {
+		writeJSONError(w, http.StatusBadRequest, "no updatable fields provided (instances, storageSize, allowedIPs)")
+		return
+	}
+	if req.Instances != nil && (*req.Instances < 1 || *req.Instances > 5) {
+		writeJSONError(w, http.StatusBadRequest, "instances must be between 1 and 5")
+		return
+	}
+	for _, cidr := range req.AllowedIPs {
+		if _, _, err := net.ParseCIDR(cidr); err != nil {
+			writeJSONError(w, http.StatusBadRequest, "invalid CIDR in allowedIPs: "+cidr)
+			return
+		}
+	}
+
+	obj, err := k8s.GetCluster(r.Context(), s.dyn, id)
+	if err != nil {
+		writeJSONError(w, http.StatusNotFound, "instance not found")
+		return
+	}
+
+	var instancesPatch *int64
+	if req.Instances != nil {
+		instancesPatch = ptr(int64(*req.Instances))
+	}
+	if req.StorageSize != nil {
+		if err := k8s.ValidateStorageIncrease(k8s.ExtractStorageSize(obj), *req.StorageSize); err != nil {
+			writeJSONError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	}
+
+	if instancesPatch != nil || req.StorageSize != nil {
+		obj, err = k8s.PatchClusterSpec(r.Context(), s.dyn, id, instancesPatch, req.StorageSize)
+		if err != nil {
+			writeJSONError(w, http.StatusBadRequest, "failed to update instance: "+err.Error())
+			return
+		}
+	}
+
+	if req.AllowedIPs != nil {
+		if err := k8s.SyncExternalService(r.Context(), s.dyn, id, req.AllowedIPs); err != nil {
+			writeJSONError(w, http.StatusBadRequest, "failed to update external access: "+err.Error())
+			return
+		}
+	}
+
+	resp := s.instanceFromCluster(r.Context(), obj)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
 }

@@ -140,6 +140,35 @@ paths:
                 $ref: '#/components/schemas/Instance'
         '404':
           $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Instances]
+      summary: Update a product instance
+      description: >
+        Partially updates a running instance. Only `instances`, `storageSize`,
+        and `allowedIPs` can be changed after creation — name, storageClass,
+        database, and username are fixed at creation time. Omitted fields are
+        left unchanged; `storageSize` may only be increased, never decreased;
+        `allowedIPs: []` removes external access entirely.
+      operationId: updateInstance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateInstanceRequest'
+            example:
+              instances: 3
+      responses:
+        '200':
+          description: Updated instance
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Instance'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
     delete:
       tags: [Instances]
       summary: Delete a product instance
@@ -284,6 +313,35 @@ components:
             reachable only from inside the cluster.
           example: ["203.0.113.0/24", "198.51.100.42/32"]
 
+    UpdateInstanceRequest:
+      type: object
+      description: >
+        All fields optional — only the ones present are changed. At least
+        one must be given.
+      properties:
+        instances:
+          type: integer
+          minimum: 1
+          maximum: 5
+          description: New desired pod count. CNPG handles both scale-up and scale-down.
+        storageSize:
+          type: string
+          description: >
+            New disk size per pod, in Kubernetes quantity notation. Must be
+            strictly greater than the current size — shrinking a live volume
+            isn't supported and is rejected with 400.
+          example: "10Gi"
+        allowedIPs:
+          type: array
+          items:
+            type: string
+          description: >
+            Replaces the full set of IP networks in CIDR notation allowed to
+            reach this instance externally. An empty array removes external
+            access (deletes the dedicated LoadBalancer Service); omitting
+            this field entirely leaves external access as-is.
+          example: ["203.0.113.0/24"]
+
     Instance:
       type: object
       properties:
@@ -316,6 +374,14 @@ components:
             dedicated external LoadBalancer Service. Does not by itself mean
             the external IP has finished being assigned — poll the
             connection endpoint for that.
+        allowedIPs:
+          type: array
+          items:
+            type: string
+          description: >
+            The CIDR ranges currently allowed to reach this instance
+            externally. Absent/empty when the instance is internal-only.
+          example: ["203.0.113.0/24"]
         version:
           type: string
           description: >

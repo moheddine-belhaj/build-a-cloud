@@ -23,6 +23,19 @@ type CreateInstanceRequest struct {
 	AllowedIPs   []string `json:"allowedIPs,omitempty"`
 }
 
+// UpdateInstanceRequest carries a partial update — only name, storageClass,
+// database, and username are truly immutable on a live CNPG Cluster (fixed
+// at initdb bootstrap or by Kubernetes object-name semantics), so those
+// aren't represented here. A nil field means "leave unchanged"; AllowedIPs
+// is a plain slice (not a pointer) so an explicit `"allowedIPs": []` can be
+// told apart from an omitted key — the former clears external access, the
+// latter leaves it as-is.
+type UpdateInstanceRequest struct {
+	Instances   *int     `json:"instances,omitempty"`
+	StorageSize *string  `json:"storageSize,omitempty"`
+	AllowedIPs  []string `json:"allowedIPs,omitempty"`
+}
+
 type Instance struct {
 	Id             *string        `json:"id,omitempty"`
 	Uid            *string        `json:"uid,omitempty"`
@@ -31,6 +44,7 @@ type Instance struct {
 	Instances      *int           `json:"instances,omitempty"`
 	ReadyInstances *int           `json:"readyInstances,omitempty"`
 	External       *bool          `json:"external,omitempty"`
+	AllowedIPs     []string       `json:"allowedIPs,omitempty"`
 	Version        *string        `json:"version,omitempty"`
 	StorageSize    *string        `json:"storageSize,omitempty"`
 	CreatedAt      *time.Time     `json:"createdAt,omitempty"`

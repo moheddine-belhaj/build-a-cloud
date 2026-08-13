@@ -42,6 +42,9 @@ func main() {
 	mux.HandleFunc("GET /v1/instances/{id}", requireAuth(func(w http.ResponseWriter, r *http.Request) {
 		srv.GetInstance(w, r, r.PathValue("id"))
 	}))
+	mux.HandleFunc("PATCH /v1/instances/{id}", requireAuth(func(w http.ResponseWriter, r *http.Request) {
+		srv.UpdateInstance(w, r, r.PathValue("id"))
+	}))
 	mux.HandleFunc("DELETE /v1/instances/{id}", requireAuth(func(w http.ResponseWriter, r *http.Request) {
 		srv.DeleteInstance(w, r, r.PathValue("id"))
 	}))

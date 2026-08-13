@@ -2,11 +2,13 @@ package k8s
 
 import (
 	"context"
+	"encoding/json"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	apitypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 )
 
@@ -66,14 +68,6 @@ func GetExternalService(ctx context.Context, dyn dynamic.Interface, instanceName
 	return dyn.Resource(ServiceGVR).Namespace(Namespace).Get(ctx, externalServiceName(instanceName), metav1.GetOptions{})
 }
 
-// HasExternalService reports whether this instance was created with
-// allowedIPs (i.e. has a dedicated LoadBalancer Service), regardless of
-// whether the cloud LB has finished assigning an external IP yet.
-func HasExternalService(ctx context.Context, dyn dynamic.Interface, instanceName string) bool {
-	_, err := GetExternalService(ctx, dyn, instanceName)
-	return err == nil
-}
-
 // DeleteExternalService is a no-op (not an error) if the instance never had
 // one — only instances created with allowedIPs get a dedicated Service.
 func DeleteExternalService(ctx context.Context, dyn dynamic.Interface, instanceName string) error {
@@ -98,6 +92,51 @@ func ExtractLoadBalancerIP(svc *unstructured.Unstructured) string {
 	}
 	ip, _ := entry["ip"].(string)
 	return ip
+}
+
+// SyncExternalService reconciles the instance's external LoadBalancer
+// Service to match allowedCIDRs: creates one if it doesn't exist yet and
+// CIDRs were given, patches spec.loadBalancerSourceRanges if it already
+// exists, or deletes it if allowedCIDRs is now empty.
+func SyncExternalService(ctx context.Context, dyn dynamic.Interface, instanceName string, allowedCIDRs []string) error {
+	_, err := GetExternalService(ctx, dyn, instanceName)
+	switch {
+	case apierrors.IsNotFound(err):
+		if len(allowedCIDRs) == 0 {
+			return nil
+		}
+		_, err := CreateExternalService(ctx, dyn, instanceName, allowedCIDRs)
+		return err
+	case err != nil:
+		return err
+	case len(allowedCIDRs) == 0:
+		return DeleteExternalService(ctx, dyn, instanceName)
+	default:
+		patch := map[string]interface{}{
+			"spec": map[string]interface{}{
+				"loadBalancerSourceRanges": stringsToInterfaces(allowedCIDRs),
+			},
+		}
+		body, err := json.Marshal(patch)
+		if err != nil {
+			return err
+		}
+		_, err = dyn.Resource(ServiceGVR).Namespace(Namespace).
+			Patch(ctx, externalServiceName(instanceName), apitypes.MergePatchType, body, metav1.PatchOptions{})
+		return err
+	}
+}
+
+// ExtractSourceRanges reads spec.loadBalancerSourceRanges off an external
+// Service — the CIDR allowlist actually in effect, as opposed to what was
+// last requested (the two are the same thing here, but this is the source
+// of truth for round-tripping the current value back to a client).
+func ExtractSourceRanges(svc *unstructured.Unstructured) []string {
+	ranges, found, err := unstructured.NestedStringSlice(svc.Object, "spec", "loadBalancerSourceRanges")
+	if err != nil || !found {
+		return nil
+	}
+	return ranges
 }
 
 func stringsToInterfaces(s []string) []interface{} {

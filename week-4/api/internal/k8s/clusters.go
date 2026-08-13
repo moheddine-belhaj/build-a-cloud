@@ -2,11 +2,15 @@ package k8s
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	apitypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 )
 
@@ -85,6 +89,46 @@ func ExtractReadyInstances(u *unstructured.Unstructured) int64 {
 		return 0
 	}
 	return n
+}
+
+// PatchClusterSpec applies a JSON merge patch touching only spec.instances
+// and/or spec.storage.size — the two Cluster fields CNPG allows changing on
+// a live instance. A merge patch only overwrites the keys present, so
+// patching storage.size alone leaves storageClass untouched. Either
+// argument may be nil to leave that field alone.
+func PatchClusterSpec(ctx context.Context, dyn dynamic.Interface, name string, instances *int64, storageSize *string) (*unstructured.Unstructured, error) {
+	spec := map[string]interface{}{}
+	if instances != nil {
+		spec["instances"] = *instances
+	}
+	if storageSize != nil {
+		spec["storage"] = map[string]interface{}{"size": *storageSize}
+	}
+	body, err := json.Marshal(map[string]interface{}{"spec": spec})
+	if err != nil {
+		return nil, err
+	}
+	return dyn.Resource(ClusterGVR).Namespace(Namespace).Patch(ctx, name, apitypes.MergePatchType, body, metav1.PatchOptions{})
+}
+
+// ValidateStorageIncrease errors out if requested is not strictly greater
+// than current. CNPG's own admission webhook already rejects a shrink at
+// the API server, but checking here first gives a clean 400 with a message
+// that names the current size, instead of surfacing the webhook's raw
+// rejection.
+func ValidateStorageIncrease(current, requested string) error {
+	currentQty, err := resource.ParseQuantity(current)
+	if err != nil {
+		return fmt.Errorf("current storage size %q could not be parsed: %w", current, err)
+	}
+	requestedQty, err := resource.ParseQuantity(requested)
+	if err != nil {
+		return fmt.Errorf("invalid storageSize %q: %w", requested, err)
+	}
+	if requestedQty.Cmp(currentQty) <= 0 {
+		return fmt.Errorf("storageSize can only be increased, not decreased or kept the same (currently %s)", current)
+	}
+	return nil
 }
 
 // ExtractStorageSize reads spec.storage.size, e.g. "5Gi" — the value
