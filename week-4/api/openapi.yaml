@@ -258,6 +258,16 @@ components:
           type: string
           example: "5Gi"
           description: Disk size per Postgres pod, in Kubernetes quantity notation.
+        allowedIPs:
+          type: array
+          items:
+            type: string
+          description: >
+            IP networks in CIDR notation allowed to reach this instance from
+            outside the cluster. If omitted or empty, the instance is not
+            exposed externally — no public IP is provisioned, and it stays
+            reachable only from inside the cluster.
+          example: ["203.0.113.0/24", "198.51.100.42/32"]
 
     Instance:
       type: object
@@ -277,6 +287,13 @@ components:
         readyInstances:
           type: integer
           description: Number of Postgres pods currently ready and serving traffic.
+        external:
+          type: boolean
+          description: >
+            Whether this instance was created with allowedIPs and has a
+            dedicated external LoadBalancer Service. Does not by itself mean
+            the external IP has finished being assigned — poll the
+            connection endpoint for that.
         createdAt:
           type: string
           format: date-time
@@ -286,7 +303,11 @@ components:
       properties:
         host:
           type: string
-          description: In-cluster DNS name for the instance's primary (read/write) endpoint.
+          description: >
+            Address for the instance's primary (read/write) endpoint. If the
+            instance was created with allowedIPs, this is the external
+            LoadBalancer IP; otherwise it's the in-cluster DNS name, reachable
+            only from inside the cluster.
           example: api-test-1-rw.cnpg-system.svc.cluster.local
         port:
           type: integer
