@@ -37,7 +37,7 @@ func newCluster(name, phase string) *unstructured.Unstructured {
 func TestCreateCluster(t *testing.T) {
 	dyn := newFakeClient()
 
-	obj, err := CreateCluster(context.Background(), dyn, "api-test-1", 3, "5Gi")
+	obj, err := CreateCluster(context.Background(), dyn, "api-test-1", 3, "5Gi", "premium-perf4-stackit", "appdb", "appuser")
 	if err != nil {
 		t.Fatalf("CreateCluster returned error: %v", err)
 	}
@@ -56,16 +56,24 @@ func TestCreateCluster(t *testing.T) {
 	if err != nil || !found || size != "5Gi" {
 		t.Errorf("spec.storage.size = %v (found=%v, err=%v), want 5Gi", size, found, err)
 	}
+	storageClass, found, err := unstructured.NestedString(obj.Object, "spec", "storage", "storageClass")
+	if err != nil || !found || storageClass != "premium-perf4-stackit" {
+		t.Errorf("spec.storage.storageClass = %v (found=%v, err=%v), want premium-perf4-stackit", storageClass, found, err)
+	}
 	db, found, err := unstructured.NestedString(obj.Object, "spec", "bootstrap", "initdb", "database")
 	if err != nil || !found || db != "appdb" {
 		t.Errorf("spec.bootstrap.initdb.database = %v (found=%v, err=%v), want appdb", db, found, err)
+	}
+	owner, found, err := unstructured.NestedString(obj.Object, "spec", "bootstrap", "initdb", "owner")
+	if err != nil || !found || owner != "appuser" {
+		t.Errorf("spec.bootstrap.initdb.owner = %v (found=%v, err=%v), want appuser", owner, found, err)
 	}
 }
 
 func TestCreateCluster_AlreadyExists(t *testing.T) {
 	dyn := newFakeClient(newCluster("api-test-1", ""))
 
-	_, err := CreateCluster(context.Background(), dyn, "api-test-1", 3, "5Gi")
+	_, err := CreateCluster(context.Background(), dyn, "api-test-1", 3, "5Gi", "premium-perf4-stackit", "appdb", "appuser")
 	if err == nil {
 		t.Fatal("expected error creating a duplicate cluster, got nil")
 	}

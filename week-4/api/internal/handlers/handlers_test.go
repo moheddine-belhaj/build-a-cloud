@@ -133,7 +133,7 @@ func decode[T any](t *testing.T, body *bytes.Buffer) T {
 func TestCreateInstance(t *testing.T) {
 	srv, dyn, _ := newFakeServer()
 
-	body := strings.NewReader(`{"name":"api-test-1","instances":5,"storageSize":"10Gi"}`)
+	body := strings.NewReader(`{"name":"api-test-1","instances":5,"storageSize":"10Gi","storageClass":"premium-perf4-stackit","database":"mydb","username":"myuser"}`)
 	req := withUser(httptest.NewRequest(http.MethodPost, "/v1/instances", body))
 	w := httptest.NewRecorder()
 
@@ -164,6 +164,14 @@ func TestCreateInstance(t *testing.T) {
 	size, _, _ := unstructured.NestedString(obj.Object, "spec", "storage", "size")
 	if size != "10Gi" {
 		t.Errorf("spec.storage.size = %q, want 10Gi", size)
+	}
+	db, _, _ := unstructured.NestedString(obj.Object, "spec", "bootstrap", "initdb", "database")
+	if db != "mydb" {
+		t.Errorf("spec.bootstrap.initdb.database = %q, want mydb", db)
+	}
+	owner, _, _ := unstructured.NestedString(obj.Object, "spec", "bootstrap", "initdb", "owner")
+	if owner != "myuser" {
+		t.Errorf("spec.bootstrap.initdb.owner = %q, want myuser", owner)
 	}
 }
 
@@ -196,7 +204,7 @@ func TestCreateInstance_InvalidBody(t *testing.T) {
 func TestCreateInstance_MissingInstances(t *testing.T) {
 	srv, _, _ := newFakeServer()
 
-	req := withUser(httptest.NewRequest(http.MethodPost, "/v1/instances", strings.NewReader(`{"name":"api-test-1","storageSize":"5Gi"}`)))
+	req := withUser(httptest.NewRequest(http.MethodPost, "/v1/instances", strings.NewReader(`{"name":"api-test-1","storageSize":"5Gi","storageClass":"premium-perf4-stackit","database":"mydb","username":"myuser"}`)))
 	w := httptest.NewRecorder()
 
 	srv.CreateInstance(w, req)
@@ -209,7 +217,7 @@ func TestCreateInstance_MissingInstances(t *testing.T) {
 func TestCreateInstance_MissingStorageSize(t *testing.T) {
 	srv, _, _ := newFakeServer()
 
-	req := withUser(httptest.NewRequest(http.MethodPost, "/v1/instances", strings.NewReader(`{"name":"api-test-1","instances":3}`)))
+	req := withUser(httptest.NewRequest(http.MethodPost, "/v1/instances", strings.NewReader(`{"name":"api-test-1","instances":3,"storageClass":"premium-perf4-stackit","database":"mydb","username":"myuser"}`)))
 	w := httptest.NewRecorder()
 
 	srv.CreateInstance(w, req)
@@ -219,10 +227,62 @@ func TestCreateInstance_MissingStorageSize(t *testing.T) {
 	}
 }
 
+func TestCreateInstance_MissingStorageClass(t *testing.T) {
+	srv, _, _ := newFakeServer()
+
+	req := withUser(httptest.NewRequest(http.MethodPost, "/v1/instances", strings.NewReader(`{"name":"api-test-1","instances":3,"storageSize":"5Gi","database":"mydb","username":"myuser"}`)))
+	w := httptest.NewRecorder()
+
+	srv.CreateInstance(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusBadRequest)
+	}
+}
+
+func TestCreateInstance_InvalidStorageClass(t *testing.T) {
+	srv, _, _ := newFakeServer()
+
+	req := withUser(httptest.NewRequest(http.MethodPost, "/v1/instances", strings.NewReader(`{"name":"api-test-1","instances":3,"storageSize":"5Gi","storageClass":"not-an-option","database":"mydb","username":"myuser"}`)))
+	w := httptest.NewRecorder()
+
+	srv.CreateInstance(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d, body=%s", w.Code, http.StatusBadRequest, w.Body.String())
+	}
+}
+
+func TestCreateInstance_InvalidDatabase(t *testing.T) {
+	srv, _, _ := newFakeServer()
+
+	req := withUser(httptest.NewRequest(http.MethodPost, "/v1/instances", strings.NewReader(`{"name":"api-test-1","instances":3,"storageSize":"5Gi","storageClass":"premium-perf4-stackit","database":"1; drop table users;","username":"myuser"}`)))
+	w := httptest.NewRecorder()
+
+	srv.CreateInstance(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d, body=%s", w.Code, http.StatusBadRequest, w.Body.String())
+	}
+}
+
+func TestCreateInstance_InvalidUsername(t *testing.T) {
+	srv, _, _ := newFakeServer()
+
+	req := withUser(httptest.NewRequest(http.MethodPost, "/v1/instances", strings.NewReader(`{"name":"api-test-1","instances":3,"storageSize":"5Gi","storageClass":"premium-perf4-stackit","database":"mydb","username":"bad user!"}`)))
+	w := httptest.NewRecorder()
+
+	srv.CreateInstance(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d, body=%s", w.Code, http.StatusBadRequest, w.Body.String())
+	}
+}
+
 func TestCreateInstance_Duplicate(t *testing.T) {
 	srv, _, _ := newFakeServer(newCluster("api-test-1", ""))
 
-	req := withUser(httptest.NewRequest(http.MethodPost, "/v1/instances", strings.NewReader(`{"name":"api-test-1","instances":3,"storageSize":"5Gi"}`)))
+	req := withUser(httptest.NewRequest(http.MethodPost, "/v1/instances", strings.NewReader(`{"name":"api-test-1","instances":3,"storageSize":"5Gi","storageClass":"premium-perf4-stackit","database":"mydb","username":"myuser"}`)))
 	w := httptest.NewRecorder()
 
 	srv.CreateInstance(w, req)
@@ -319,6 +379,46 @@ func TestGetInstance(t *testing.T) {
 	}
 	if got.Phase == nil || *got.Phase != types.Healthy {
 		t.Errorf("phase = %v, want Healthy", got.Phase)
+	}
+}
+
+func TestGetInstance_PodCountsAndCreatedAt(t *testing.T) {
+	cluster := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "postgresql.cnpg.io/v1",
+		"kind":       "Cluster",
+		"metadata": map[string]interface{}{
+			"name":              "api-test-1",
+			"namespace":         k8s.Namespace,
+			"creationTimestamp": "2026-01-02T03:04:05Z",
+		},
+		"spec": map[string]interface{}{
+			"instances": int64(3),
+		},
+		"status": map[string]interface{}{
+			"phase":          "Cluster in healthy state",
+			"readyInstances": int64(2),
+		},
+	}}
+	srv, _, st := newFakeServer(cluster)
+	st.instances["api-test-1"] = testUserID
+
+	req := withUser(httptest.NewRequest(http.MethodGet, "/v1/instances/api-test-1", nil))
+	w := httptest.NewRecorder()
+
+	srv.GetInstance(w, req, "api-test-1")
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d, body=%s", w.Code, http.StatusOK, w.Body.String())
+	}
+	got := decode[types.Instance](t, w.Body)
+	if got.Instances == nil || *got.Instances != 3 {
+		t.Errorf("instances = %v, want 3", got.Instances)
+	}
+	if got.ReadyInstances == nil || *got.ReadyInstances != 2 {
+		t.Errorf("readyInstances = %v, want 2", got.ReadyInstances)
+	}
+	if got.CreatedAt == nil || got.CreatedAt.IsZero() {
+		t.Errorf("createdAt = %v, want a real timestamp", got.CreatedAt)
 	}
 }
 
