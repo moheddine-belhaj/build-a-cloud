@@ -77,6 +77,8 @@ export interface Instance {
   readyInstances: number
   /** Has a dedicated external LoadBalancer Service — doesn't by itself mean the IP is assigned yet. Absent on older API deploys. */
   external?: boolean
+  /** CIDR ranges currently allowed to reach this instance externally. Absent/empty when internal-only. */
+  allowedIPs?: string[]
   /** Postgres version tag currently running. Empty until the operator reports it. Absent on older API deploys. */
   version?: string
   /** Disk size per pod, as requested at creation. Absent on older API deploys. */
@@ -95,6 +97,15 @@ export interface CreateInstanceRequest {
   database: string
   username: string
   /** IP networks in CIDR notation allowed to reach this instance externally. Omit/empty = internal-only. */
+  allowedIPs?: string[]
+}
+
+export interface UpdateInstanceRequest {
+  /** New desired pod count. Omit to leave unchanged. */
+  instances?: number
+  /** New disk size per pod — must be strictly greater than the current size. Omit to leave unchanged. */
+  storageSize?: string
+  /** Replaces the full allowedIPs list. Empty array removes external access; omit to leave as-is. */
   allowedIPs?: string[]
 }
 
@@ -119,6 +130,11 @@ export const instancesApi = {
   create: (body: CreateInstanceRequest) =>
     request<Instance>('/v1/instances', { method: 'POST', body: JSON.stringify(body) }),
   get: (id: string) => request<Instance>(`/v1/instances/${encodeURIComponent(id)}`),
+  update: (id: string, body: UpdateInstanceRequest) =>
+    request<Instance>(`/v1/instances/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
   remove: (id: string) =>
     request<void>(`/v1/instances/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   connection: (id: string) =>
