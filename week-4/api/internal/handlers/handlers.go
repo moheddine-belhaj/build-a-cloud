@@ -315,6 +315,45 @@ func (s *Server) authorizeOwner(w http.ResponseWriter, r *http.Request, name str
 	return true
 }
 
+// ListInstanceServices returns the Postgres endpoints CNPG exposes for an
+// instance — the "-rw"/"-ro"/"-r" ClusterIP Services it manages
+// automatically — so the UI can show connection targets beyond just the
+// primary without the caller needing kubectl access.
+func (s *Server) ListInstanceServices(w http.ResponseWriter, r *http.Request, id string) {
+	if !s.authorizeOwner(w, r, id) {
+		return
+	}
+
+	list, err := k8s.ListInstanceServices(r.Context(), s.dyn, id)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "failed to list services")
+		return
+	}
+
+	out := make([]types.ServiceInfo, 0, len(list.Items))
+	for i := range list.Items {
+		summary := k8s.SummarizeService(&list.Items[i])
+		ports := make([]types.ServicePort, 0, len(summary.Ports))
+		for _, p := range summary.Ports {
+			ports = append(ports, types.ServicePort{
+				Name:     ptr(p.Name),
+				Port:     ptr(int(p.Port)),
+				Protocol: ptr(p.Protocol),
+			})
+		}
+		out = append(out, types.ServiceInfo{
+			Name:       ptr(summary.Name),
+			Type:       ptr(summary.Type),
+			ClusterIP:  ptr(summary.ClusterIP),
+			ExternalIP: ptr(summary.ExternalIP),
+			Ports:      ports,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(out)
+}
+
 func (s *Server) GetInstanceConnection(w http.ResponseWriter, r *http.Request, id string) {
 	if !s.authorizeOwner(w, r, id) {
 		return

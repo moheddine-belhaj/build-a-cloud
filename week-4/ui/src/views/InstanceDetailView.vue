@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
-import { instancesApi, ApiError, type Instance, type ConnectionInfo, type UpdateInstanceRequest } from '@/lib/api'
+import { instancesApi, ApiError, type Instance, type ConnectionInfo, type ServiceInfo, type UpdateInstanceRequest } from '@/lib/api'
 import PhaseBadge from '@/components/PhaseBadge.vue'
 import ExternalBadge from '@/components/ExternalBadge.vue'
 import CopyButton from '@/components/CopyButton.vue'
@@ -27,6 +27,16 @@ const loadingConnection = ref(false)
 const showPassword = ref(false)
 const copiedConnectionString = ref(false)
 
+const services = ref<ServiceInfo[]>([])
+const servicesError = ref('')
+const loadingServices = ref(false)
+const servicesLoaded = ref(false)
+
+function portsSummary(svc: ServiceInfo): string {
+  if (!svc.ports || svc.ports.length === 0) return '—'
+  return svc.ports.map((p) => `${p.port}/${p.protocol ?? 'TCP'}`).join(', ')
+}
+
 const connectionString = computed(() => {
   if (!connection.value) return ''
   const { username, password, host, port, database } = connection.value
@@ -41,6 +51,19 @@ async function refresh() {
     loadError.value = ''
   } catch (e) {
     loadError.value = e instanceof ApiError ? e.message : 'Failed to load instance.'
+  }
+}
+
+async function loadServices() {
+  servicesError.value = ''
+  loadingServices.value = true
+  try {
+    services.value = await instancesApi.services(props.id)
+    servicesLoaded.value = true
+  } catch (e) {
+    servicesError.value = e instanceof ApiError ? e.message : 'Failed to load services.'
+  } finally {
+    loadingServices.value = false
   }
 }
 
@@ -155,6 +178,7 @@ function copy(text: string) {
 
 onMounted(() => {
   refresh()
+  loadServices()
   pollHandle = setInterval(refresh, 5000)
 })
 
@@ -363,6 +387,52 @@ onUnmounted(() => {
             </dd>
           </div>
         </dl>
+      </div>
+
+      <div class="rounded-lg border border-border bg-surface-2 p-6 shadow-sm">
+        <div class="mb-4 flex items-center justify-between">
+          <h2 class="text-sm font-semibold text-foreground">Network endpoints</h2>
+          <button
+            v-if="servicesLoaded"
+            :disabled="loadingServices"
+            class="text-xs font-medium text-muted hover:text-foreground disabled:opacity-50"
+            @click="loadServices"
+          >
+            {{ loadingServices ? 'Refreshing…' : 'Refresh' }}
+          </button>
+        </div>
+
+        <p class="mb-4 text-sm text-muted">
+          In-cluster Postgres Services CNPG manages for this instance — the primary
+          (read/write), read-only replica, and any-replica endpoints.
+        </p>
+
+        <p v-if="servicesError" class="text-sm text-danger">{{ servicesError }}</p>
+        <p v-else-if="loadingServices && !servicesLoaded" class="text-sm text-muted">Loading…</p>
+        <p v-else-if="servicesLoaded && services.length === 0" class="text-sm text-muted">No services found.</p>
+
+        <div v-if="services.length > 0" class="overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead>
+              <tr class="border-b border-border text-xs uppercase tracking-wide text-faint">
+                <th class="py-2 pr-4 font-medium">Name</th>
+                <th class="py-2 pr-4 font-medium">Type</th>
+                <th class="py-2 pr-4 font-medium">Cluster IP</th>
+                <th class="py-2 pr-4 font-medium">External IP</th>
+                <th class="py-2 font-medium">Port(s)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="svc in services" :key="svc.name" class="border-b border-border last:border-0">
+                <td class="py-2.5 pr-4 font-mono text-foreground">{{ svc.name }}</td>
+                <td class="py-2.5 pr-4 text-muted">{{ svc.type || '—' }}</td>
+                <td class="py-2.5 pr-4 font-mono text-foreground">{{ svc.clusterIP || '—' }}</td>
+                <td class="py-2.5 pr-4 font-mono text-muted">{{ svc.externalIP || '—' }}</td>
+                <td class="py-2.5 font-mono text-foreground">{{ portsSummary(svc) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div class="flex justify-end">

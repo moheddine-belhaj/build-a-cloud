@@ -51,6 +51,9 @@ func main() {
 	mux.HandleFunc("GET /v1/instances/{id}/connection", requireAuth(func(w http.ResponseWriter, r *http.Request) {
 		srv.GetInstanceConnection(w, r, r.PathValue("id"))
 	}))
+	mux.HandleFunc("GET /v1/instances/{id}/services", requireAuth(func(w http.ResponseWriter, r *http.Request) {
+		srv.ListInstanceServices(w, r, r.PathValue("id"))
+	}))
 
 	log.Println("listening on", cfg.Addr)
 	log.Fatal(http.ListenAndServe(cfg.Addr, middleware.Logging(middleware.CORS(mux))))

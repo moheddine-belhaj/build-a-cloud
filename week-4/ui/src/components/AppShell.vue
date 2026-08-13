@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useTheme } from '@/composables/useTheme'
+import DatabaseIcon from '@/components/DatabaseIcon.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -34,7 +35,7 @@ function logout() {
             <path d="M4 17 L12 21 L20 17" />
           </svg>
         </span>
-        <span class="text-[14.5px] font-semibold tracking-tight text-foreground">PaaS Console</span>
+        <span class="text-[14.5px] font-semibold tracking-tight text-foreground">OurSQL</span>
       </RouterLink>
 
       <nav class="flex flex-col gap-0.5">
@@ -45,11 +46,7 @@ function logout() {
             ? 'border-accent bg-accent-soft font-semibold text-accent'
             : 'border-transparent text-muted hover:bg-surface-hover hover:text-foreground'"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0" :class="isInstances ? 'opacity-100' : 'opacity-85'">
-            <ellipse cx="12" cy="6" rx="7" ry="3" />
-            <path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6" />
-            <path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" />
-          </svg>
+          <DatabaseIcon :size="16" :class="isInstances ? 'opacity-100' : 'opacity-85'" />
           Instances
         </RouterLink>
         <RouterLink

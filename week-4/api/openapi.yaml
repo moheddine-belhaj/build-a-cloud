@@ -212,6 +212,35 @@ paths:
         '409':
           description: Instance exists but hasn't finished provisioning yet — no credentials available
 
+  /v1/instances/{id}/services:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The instance's unique name.
+        schema:
+          type: string
+        example: api-test-1
+    get:
+      tags: [Instances]
+      summary: List the Postgres endpoints exposed for an instance
+      description: >
+        Returns the ClusterIP Services CNPG manages automatically for this
+        instance — the read/write primary endpoint ("-rw"), the read-only
+        replica endpoint ("-ro"), and the any-replica endpoint ("-r").
+      operationId: listInstanceServices
+      responses:
+        '200':
+          description: Services
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ServiceInfo'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -396,6 +425,36 @@ components:
         createdAt:
           type: string
           format: date-time
+
+    ServiceInfo:
+      type: object
+      properties:
+        name:
+          type: string
+          example: api-test-1-rw
+        type:
+          type: string
+          example: ClusterIP
+        clusterIP:
+          type: string
+          example: 100.82.187.136
+        externalIP:
+          type: string
+          description: Empty for the internal rw/ro/r Services — they're never externally exposed directly.
+        ports:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                example: postgres
+              port:
+                type: integer
+                example: 5432
+              protocol:
+                type: string
+                example: TCP
 
     ConnectionInfo:
       type: object

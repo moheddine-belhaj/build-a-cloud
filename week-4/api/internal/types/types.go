@@ -50,6 +50,24 @@ type Instance struct {
 	CreatedAt      *time.Time     `json:"createdAt,omitempty"`
 }
 
+// ServicePort mirrors a single entry of a Kubernetes Service's spec.ports.
+type ServicePort struct {
+	Name     *string `json:"name,omitempty"`
+	Port     *int    `json:"port,omitempty"`
+	Protocol *string `json:"protocol,omitempty"`
+}
+
+// ServiceInfo describes one of the Postgres endpoints CNPG exposes for an
+// instance — e.g. "<name>-rw" (primary), "<name>-ro" (read-only replicas),
+// "<name>-r" (any replica).
+type ServiceInfo struct {
+	Name       *string       `json:"name,omitempty"`
+	Type       *string       `json:"type,omitempty"`
+	ClusterIP  *string       `json:"clusterIP,omitempty"`
+	ExternalIP *string       `json:"externalIP,omitempty"`
+	Ports      []ServicePort `json:"ports,omitempty"`
+}
+
 type ConnectionInfo struct {
 	Host     *string `json:"host,omitempty"`
 	Port     *int    `json:"port,omitempty"`

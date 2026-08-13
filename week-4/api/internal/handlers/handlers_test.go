@@ -95,6 +95,7 @@ func newFakeServer(objects ...runtime.Object) (*handlers.Server, dynamic.Interfa
 	scheme := runtime.NewScheme()
 	dyn := fake.NewSimpleDynamicClientWithCustomListKinds(scheme, map[schema.GroupVersionResource]string{
 		k8s.ClusterGVR: "ClusterList",
+		k8s.ServiceGVR: "ServiceList",
 	}, objects...)
 	st := newFakeStore()
 	return handlers.NewServer(dyn, st, "test-secret", time.Hour), dyn, st
@@ -548,6 +549,78 @@ func TestGetInstanceConnection_NotOwner(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	srv.GetInstanceConnection(w, req, "api-test-1")
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusNotFound)
+	}
+}
+
+func newClusterService(clusterName, suffix string) *unstructured.Unstructured {
+	return &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "Service",
+		"metadata": map[string]interface{}{
+			"name":      clusterName + suffix,
+			"namespace": k8s.Namespace,
+			"labels": map[string]interface{}{
+				"cnpg.io/cluster": clusterName,
+			},
+		},
+		"spec": map[string]interface{}{
+			"type":      "ClusterIP",
+			"clusterIP": "100.82.187.136",
+			"ports": []interface{}{
+				map[string]interface{}{"name": "postgres", "port": int64(5432), "protocol": "TCP"},
+			},
+		},
+	}}
+}
+
+func TestListInstanceServices(t *testing.T) {
+	srv, _, st := newFakeServer(
+		newCluster("api-test-1", "Healthy"),
+		newClusterService("api-test-1", "-rw"),
+		newClusterService("api-test-1", "-ro"),
+		newClusterService("api-test-1", "-r"),
+	)
+	st.instances["api-test-1"] = testUserID
+
+	req := withUser(httptest.NewRequest(http.MethodGet, "/v1/instances/api-test-1/services", nil))
+	w := httptest.NewRecorder()
+
+	srv.ListInstanceServices(w, req, "api-test-1")
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d, body=%s", w.Code, http.StatusOK, w.Body.String())
+	}
+	got := decode[[]types.ServiceInfo](t, w.Body)
+	if len(got) != 3 {
+		t.Fatalf("len(services) = %d, want 3, body=%s", len(got), w.Body.String())
+	}
+	for _, svc := range got {
+		if svc.Type == nil || *svc.Type != "ClusterIP" {
+			t.Errorf("type = %v, want ClusterIP", svc.Type)
+		}
+		if svc.ClusterIP == nil || *svc.ClusterIP != "100.82.187.136" {
+			t.Errorf("clusterIP = %v, want 100.82.187.136", svc.ClusterIP)
+		}
+		if len(svc.Ports) != 1 || svc.Ports[0].Port == nil || *svc.Ports[0].Port != 5432 {
+			t.Errorf("ports = %+v, want one port 5432", svc.Ports)
+		}
+	}
+}
+
+func TestListInstanceServices_NotOwner(t *testing.T) {
+	srv, _, st := newFakeServer(
+		newCluster("api-test-1", "Healthy"),
+		newClusterService("api-test-1", "-rw"),
+	)
+	st.instances["api-test-1"] = testUserID + 1
+
+	req := withUser(httptest.NewRequest(http.MethodGet, "/v1/instances/api-test-1/services", nil))
+	w := httptest.NewRecorder()
+
+	srv.ListInstanceServices(w, req, "api-test-1")
 
 	if w.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want %d", w.Code, http.StatusNotFound)

@@ -37,14 +37,14 @@ async function onSubmit() {
   <div class="flex min-h-screen items-center justify-center bg-bg px-4">
     <div class="w-full max-w-sm rounded-lg border border-border bg-surface-2 p-8 shadow-sm">
       <div class="mb-6 flex items-center gap-2.5">
-        <span class="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <span class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
             <path d="M4 7 L12 3 L20 7 L12 11 Z" />
             <path d="M4 12 L12 16 L20 12" />
             <path d="M4 17 L12 21 L20 17" />
           </svg>
         </span>
-        <span class="text-[14.5px] font-semibold tracking-tight text-foreground">PaaS Console</span>
+        <span class="text-[30px] font-semibold tracking-tight text-foreground">OurSQL</span>
       </div>
       <h1 class="mb-6 text-xl font-semibold text-foreground">Create an account</h1>
 

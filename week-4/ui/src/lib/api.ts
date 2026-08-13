@@ -109,6 +109,21 @@ export interface UpdateInstanceRequest {
   allowedIPs?: string[]
 }
 
+export interface ServicePort {
+  name?: string
+  port?: number
+  protocol?: string
+}
+
+/** One of the Postgres endpoints CNPG exposes for an instance (e.g. `<name>-rw`, `-ro`, `-r`). */
+export interface ServiceInfo {
+  name?: string
+  type?: string
+  clusterIP?: string
+  externalIP?: string
+  ports?: ServicePort[]
+}
+
 export interface ConnectionInfo {
   /** External LoadBalancer IP if the instance is external, otherwise an in-cluster DNS name. */
   host: string
@@ -139,4 +154,6 @@ export const instancesApi = {
     request<void>(`/v1/instances/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   connection: (id: string) =>
     request<ConnectionInfo>(`/v1/instances/${encodeURIComponent(id)}/connection`),
+  services: (id: string) =>
+    request<ServiceInfo[]>(`/v1/instances/${encodeURIComponent(id)}/services`),
 }
