@@ -17,7 +17,7 @@ var ClusterGVR = schema.GroupVersionResource{
 	Resource: "clusters",
 }
 
-func CreateCluster(ctx context.Context, dyn dynamic.Interface, name string, instances int64, storageSize string) (*unstructured.Unstructured, error) {
+func CreateCluster(ctx context.Context, dyn dynamic.Interface, name string, instances int64, storageSize, storageClass, database, username string) (*unstructured.Unstructured, error) {
 	cluster := &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "postgresql.cnpg.io/v1",
@@ -30,12 +30,12 @@ func CreateCluster(ctx context.Context, dyn dynamic.Interface, name string, inst
 				"instances": instances,
 				"storage": map[string]interface{}{
 					"size":         storageSize,
-					"storageClass": "premium-perf4-stackit",
+					"storageClass": storageClass,
 				},
 				"bootstrap": map[string]interface{}{
 					"initdb": map[string]interface{}{
-						"database": "appdb",
-						"owner":    "appuser",
+						"database": database,
+						"owner":    username,
 					},
 				},
 			},
@@ -63,4 +63,25 @@ func ExtractPhase(u *unstructured.Unstructured) string {
 		return "Provisioning"
 	}
 	return phase
+}
+
+// ExtractDesiredInstances reads spec.instances — the pod count that was
+// requested at creation time, available immediately even before the
+// operator has reported any status.
+func ExtractDesiredInstances(u *unstructured.Unstructured) int64 {
+	n, found, err := unstructured.NestedInt64(u.Object, "spec", "instances")
+	if err != nil || !found {
+		return 0
+	}
+	return n
+}
+
+// ExtractReadyInstances reads status.readyInstances — 0 (not found/reported
+// yet) while the cluster is still provisioning.
+func ExtractReadyInstances(u *unstructured.Unstructured) int64 {
+	n, found, err := unstructured.NestedInt64(u.Object, "status", "readyInstances")
+	if err != nil || !found {
+		return 0
+	}
+	return n
 }

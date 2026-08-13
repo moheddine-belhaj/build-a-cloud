@@ -78,10 +78,16 @@ export interface Instance {
   createdAt: string
 }
 
+/** Kubernetes StorageClasses offered for a new instance's volumes — a fixed selection, not free text. */
+export const STORAGE_CLASSES = ['premium-perf4-stackit'] as const
+
 export interface CreateInstanceRequest {
   name: string
   instances: number
   storageSize: string
+  storageClass: string
+  database: string
+  username: string
   /** IP networks in CIDR notation allowed to reach this instance externally. Omit/empty = internal-only. */
   allowedIPs?: string[]
 }

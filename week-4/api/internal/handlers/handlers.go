@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"regexp"
 	"time"
 
 	"github.com/moheddine-belhaj/build-a-cloud/week-4/api/internal/k8s"
@@ -13,6 +14,20 @@ import (
 	"github.com/moheddine-belhaj/build-a-cloud/week-4/api/internal/types"
 	"k8s.io/client-go/dynamic"
 )
+
+// postgresIdentifierRe matches a safe, unquoted Postgres identifier: starts
+// with a letter/underscore, then letters/digits/underscores, up to Postgres's
+// own 63-byte identifier limit. Both database and username end up as raw
+// identifiers in the CNPG Cluster spec (bootstrap.initdb.database/owner), so
+// this is a real trust boundary, not just cosmetic validation.
+var postgresIdentifierRe = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]{0,62}$`)
+
+// allowedStorageClasses is the server-side source of truth for storageClass —
+// the UI only offers these as a dropdown, but that's a client-side nicety,
+// not enforcement, so it's re-checked here.
+var allowedStorageClasses = map[string]bool{
+	"premium-perf4-stackit": true,
+}
 
 type Server struct {
 	dyn       dynamic.Interface
@@ -58,6 +73,18 @@ func (s *Server) CreateInstance(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"message":"storageSize is required"}`, http.StatusBadRequest)
 		return
 	}
+	if req.StorageClass == nil || !allowedStorageClasses[*req.StorageClass] {
+		writeJSONError(w, http.StatusBadRequest, "storageClass must be one of the offered options")
+		return
+	}
+	if req.Database == nil || !postgresIdentifierRe.MatchString(*req.Database) {
+		writeJSONError(w, http.StatusBadRequest, "database must be a valid identifier (letters, digits, underscores, starting with a letter or underscore)")
+		return
+	}
+	if req.Username == nil || !postgresIdentifierRe.MatchString(*req.Username) {
+		writeJSONError(w, http.StatusBadRequest, "username must be a valid identifier (letters, digits, underscores, starting with a letter or underscore)")
+		return
+	}
 	for _, cidr := range req.AllowedIPs {
 		if _, _, err := net.ParseCIDR(cidr); err != nil {
 			writeJSONError(w, http.StatusBadRequest, "invalid CIDR in allowedIPs: "+cidr)
@@ -76,7 +103,7 @@ func (s *Server) CreateInstance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	obj, err := k8s.CreateCluster(r.Context(), s.dyn, req.Name, int64(*req.Instances), *req.StorageSize)
+	obj, err := k8s.CreateCluster(r.Context(), s.dyn, req.Name, int64(*req.Instances), *req.StorageSize, *req.StorageClass, *req.Database, *req.Username)
 	if err != nil {
 		_ = s.store.DeleteInstanceRecord(r.Context(), req.Name)
 		http.Error(w, `{"message":"failed to create instance: `+err.Error()+`"}`, http.StatusBadRequest)
@@ -96,13 +123,15 @@ func (s *Server) CreateInstance(w http.ResponseWriter, r *http.Request) {
 	}
 
 	name := obj.GetName()
-	now := time.Now()
+	createdAt := obj.GetCreationTimestamp().Time
 	resp := types.Instance{
-		Id:        ptr(name),
-		Name:      ptr(name),
-		Phase:     ptr(types.Provisioning),
-		External:  ptr(len(req.AllowedIPs) > 0),
-		CreatedAt: &now,
+		Id:             ptr(name),
+		Name:           ptr(name),
+		Phase:          ptr(types.Provisioning),
+		Instances:      req.Instances,
+		ReadyInstances: ptr(0),
+		External:       ptr(len(req.AllowedIPs) > 0),
+		CreatedAt:      &createdAt,
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -134,11 +163,15 @@ func (s *Server) ListInstances(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		phase := k8s.ExtractPhase(&item)
+		createdAt := item.GetCreationTimestamp().Time
 		out = append(out, types.Instance{
-			Id:       ptr(name),
-			Name:     ptr(name),
-			Phase:    ptr(types.InstancePhase(phase)),
-			External: ptr(k8s.HasExternalService(r.Context(), s.dyn, name)),
+			Id:             ptr(name),
+			Name:           ptr(name),
+			Phase:          ptr(types.InstancePhase(phase)),
+			Instances:      ptr(int(k8s.ExtractDesiredInstances(&item))),
+			ReadyInstances: ptr(int(k8s.ExtractReadyInstances(&item))),
+			External:       ptr(k8s.HasExternalService(r.Context(), s.dyn, name)),
+			CreatedAt:      &createdAt,
 		})
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -157,11 +190,15 @@ func (s *Server) GetInstance(w http.ResponseWriter, r *http.Request, id string) 
 	}
 	name := obj.GetName()
 	phase := k8s.ExtractPhase(obj)
+	createdAt := obj.GetCreationTimestamp().Time
 	resp := types.Instance{
-		Id:       ptr(name),
-		Name:     ptr(name),
-		Phase:    ptr(types.InstancePhase(phase)),
-		External: ptr(k8s.HasExternalService(r.Context(), s.dyn, name)),
+		Id:             ptr(name),
+		Name:           ptr(name),
+		Phase:          ptr(types.InstancePhase(phase)),
+		Instances:      ptr(int(k8s.ExtractDesiredInstances(obj))),
+		ReadyInstances: ptr(int(k8s.ExtractReadyInstances(obj))),
+		External:       ptr(k8s.HasExternalService(r.Context(), s.dyn, name)),
+		CreatedAt:      &createdAt,
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)

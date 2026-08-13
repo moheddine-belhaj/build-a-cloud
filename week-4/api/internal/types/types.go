@@ -14,10 +14,13 @@ const (
 
 type CreateInstanceRequest struct {
 	// Name must be <=11 chars (SKE-style naming constraint you already hit once)
-	Name        string   `json:"name"`
-	Instances   *int     `json:"instances,omitempty"`
-	StorageSize *string  `json:"storageSize,omitempty"`
-	AllowedIPs  []string `json:"allowedIPs,omitempty"`
+	Name         string   `json:"name"`
+	Instances    *int     `json:"instances,omitempty"`
+	StorageSize  *string  `json:"storageSize,omitempty"`
+	StorageClass *string  `json:"storageClass,omitempty"`
+	Database     *string  `json:"database,omitempty"`
+	Username     *string  `json:"username,omitempty"`
+	AllowedIPs   []string `json:"allowedIPs,omitempty"`
 }
 
 type Instance struct {
