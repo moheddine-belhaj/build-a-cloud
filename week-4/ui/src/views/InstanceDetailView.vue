@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
 import { instancesApi, ApiError, type Instance, type ConnectionInfo } from '@/lib/api'
 import PhaseBadge from '@/components/PhaseBadge.vue'
+import ExternalBadge from '@/components/ExternalBadge.vue'
 
 const props = defineProps<{ id: string }>()
 const router = useRouter()
@@ -15,6 +16,13 @@ const connection = ref<ConnectionInfo | null>(null)
 const connectionError = ref('')
 const loadingConnection = ref(false)
 const showPassword = ref(false)
+const copiedConnectionString = ref(false)
+
+const connectionString = computed(() => {
+  if (!connection.value) return ''
+  const { username, password, host, port, database } = connection.value
+  return `postgresql://${encodeURIComponent(username)}:${encodeURIComponent(password)}@${host}:${port}/${database}`
+})
 
 let pollHandle: ReturnType<typeof setInterval> | undefined
 
@@ -33,15 +41,25 @@ async function loadConnection() {
   try {
     connection.value = await instancesApi.connection(props.id)
   } catch (e) {
-    connectionError.value =
-      e instanceof ApiError && e.status === 409
-        ? "Instance hasn't finished provisioning yet — try again shortly."
-        : e instanceof ApiError
-          ? e.message
-          : 'Failed to load connection details.'
+    if (e instanceof ApiError && e.status === 409) {
+      // Two distinct "not ready yet" states: the database itself still
+      // bootstrapping vs. (for external instances) the LoadBalancer IP not
+      // being assigned yet — the backend's message tells them apart.
+      connectionError.value = e.message.includes('external endpoint')
+        ? "This instance's external endpoint is still being provisioned — try again shortly."
+        : "Instance hasn't finished provisioning yet — try again shortly."
+    } else {
+      connectionError.value = e instanceof ApiError ? e.message : 'Failed to load connection details.'
+    }
   } finally {
     loadingConnection.value = false
   }
+}
+
+async function copyConnectionString() {
+  await copy(connectionString.value)
+  copiedConnectionString.value = true
+  setTimeout(() => (copiedConnectionString.value = false), 2000)
 }
 
 async function onDelete() {
@@ -57,7 +75,7 @@ async function onDelete() {
 }
 
 function copy(text: string) {
-  navigator.clipboard.writeText(text)
+  return navigator.clipboard.writeText(text)
 }
 
 onMounted(() => {
@@ -81,7 +99,10 @@ onUnmounted(() => {
     <div v-if="instance" class="space-y-6">
       <div class="flex items-center justify-between">
         <h1 class="text-xl font-semibold text-slate-900">{{ instance.name }}</h1>
-        <PhaseBadge :phase="instance.phase" />
+        <div class="flex items-center gap-2">
+          <ExternalBadge :external="instance.external" />
+          <PhaseBadge :phase="instance.phase" />
+        </div>
       </div>
 
       <div class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
@@ -110,7 +131,25 @@ onUnmounted(() => {
           </button>
         </div>
 
+        <p v-if="!connection" class="mb-4 text-sm text-slate-500">
+          {{
+            instance.external
+              ? 'This instance has a public endpoint, reachable from the IP ranges allowed at creation time.'
+              : 'This instance is internal-only — reachable from inside the cluster, not from the public internet.'
+          }}
+        </p>
+
         <p v-if="connectionError" class="text-sm text-red-600">{{ connectionError }}</p>
+
+        <div v-if="connection" class="mb-4 flex items-center gap-2 rounded-md bg-slate-50 p-3">
+          <code class="flex-1 truncate font-mono text-xs text-slate-700">{{ connectionString }}</code>
+          <button
+            class="shrink-0 rounded-md bg-slate-900 px-2.5 py-1 text-xs font-medium text-white hover:bg-slate-700"
+            @click="copyConnectionString"
+          >
+            {{ copiedConnectionString ? 'Copied!' : 'Copy connection string' }}
+          </button>
+        </div>
 
         <dl v-if="connection" class="space-y-3 text-sm">
           <div class="flex items-center justify-between">

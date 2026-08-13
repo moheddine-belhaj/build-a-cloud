@@ -3,6 +3,8 @@ import { onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { instancesApi, ApiError, type Instance } from '@/lib/api'
 import PhaseBadge from '@/components/PhaseBadge.vue'
+import ExternalBadge from '@/components/ExternalBadge.vue'
+import { isValidCidr } from '@/lib/cidr'
 
 const instances = ref<Instance[]>([])
 const loading = ref(true)
@@ -12,8 +14,36 @@ const showCreateForm = ref(false)
 const name = ref('')
 const podCount = ref(1)
 const storageSize = ref('5Gi')
+const allowedIPsInput = ref('')
+const allowedIPsError = ref('')
+const fetchingIP = ref(false)
 const createError = ref('')
 const creating = ref(false)
+
+function parseAllowedIPs(): string[] {
+  return allowedIPsInput.value
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+}
+
+async function useMyIP() {
+  fetchingIP.value = true
+  allowedIPsError.value = ''
+  try {
+    const res = await fetch('https://api.ipify.org?format=json')
+    const data = (await res.json()) as { ip: string }
+    const cidr = `${data.ip}/32`
+    const current = parseAllowedIPs()
+    if (!current.includes(cidr)) {
+      allowedIPsInput.value = [...current, cidr].join(', ')
+    }
+  } catch {
+    allowedIPsError.value = 'Could not detect your IP — enter it manually.'
+  } finally {
+    fetchingIP.value = false
+  }
+}
 
 const deletingId = ref<string | null>(null)
 
@@ -32,16 +62,27 @@ async function refresh() {
 
 async function onCreate() {
   createError.value = ''
+  allowedIPsError.value = ''
+
+  const allowedIPs = parseAllowedIPs()
+  const invalid = allowedIPs.filter((cidr) => !isValidCidr(cidr))
+  if (invalid.length > 0) {
+    allowedIPsError.value = `Invalid CIDR${invalid.length > 1 ? 's' : ''}: ${invalid.join(', ')}`
+    return
+  }
+
   creating.value = true
   try {
     await instancesApi.create({
       name: name.value,
       instances: podCount.value,
       storageSize: storageSize.value,
+      allowedIPs: allowedIPs.length > 0 ? allowedIPs : undefined,
     })
     name.value = ''
     podCount.value = 1
     storageSize.value = '5Gi'
+    allowedIPsInput.value = ''
     showCreateForm.value = false
     await refresh()
   } catch (e) {
@@ -137,6 +178,34 @@ onUnmounted(() => {
         </div>
       </div>
 
+      <div>
+        <div class="mb-1 flex items-center justify-between">
+          <label for="allowedIPs" class="block text-sm font-medium text-slate-700"
+            >Allowed IPs (optional)</label
+          >
+          <button
+            type="button"
+            :disabled="fetchingIP"
+            class="text-xs font-medium text-slate-500 hover:text-slate-900 disabled:opacity-50"
+            @click="useMyIP"
+          >
+            {{ fetchingIP ? 'Detecting…' : 'Use my current IP' }}
+          </button>
+        </div>
+        <input
+          id="allowedIPs"
+          v-model="allowedIPsInput"
+          type="text"
+          placeholder="203.0.113.0/24, 198.51.100.42/32"
+          class="w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-sm focus:border-slate-500 focus:outline-none"
+        />
+        <p class="mt-1 text-xs text-slate-400">
+          Comma-separated CIDR ranges allowed to reach this instance from outside the cluster.
+          Leave empty to keep it internal-only.
+        </p>
+        <p v-if="allowedIPsError" class="mt-1 text-xs text-red-600">{{ allowedIPsError }}</p>
+      </div>
+
       <p v-if="createError" class="text-sm text-red-600">{{ createError }}</p>
 
       <button
@@ -162,6 +231,7 @@ onUnmounted(() => {
           <tr>
             <th class="px-4 py-2 font-medium">Name</th>
             <th class="px-4 py-2 font-medium">Phase</th>
+            <th class="px-4 py-2 font-medium">Access</th>
             <th class="px-4 py-2 font-medium">Pods</th>
             <th class="px-4 py-2 font-medium">Created</th>
             <th class="px-4 py-2"></th>
@@ -178,6 +248,7 @@ onUnmounted(() => {
               </RouterLink>
             </td>
             <td class="px-4 py-2"><PhaseBadge :phase="instance.phase" /></td>
+            <td class="px-4 py-2"><ExternalBadge :external="instance.external" /></td>
             <td class="px-4 py-2 text-slate-600">
               {{ instance.readyInstances }} / {{ instance.instances }}
             </td>

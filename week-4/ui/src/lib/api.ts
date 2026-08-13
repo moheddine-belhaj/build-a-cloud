@@ -73,6 +73,8 @@ export interface Instance {
   phase: InstancePhase
   instances: number
   readyInstances: number
+  /** Has a dedicated external LoadBalancer Service — doesn't by itself mean the IP is assigned yet. Absent on older API deploys. */
+  external?: boolean
   createdAt: string
 }
 
@@ -80,9 +82,12 @@ export interface CreateInstanceRequest {
   name: string
   instances: number
   storageSize: string
+  /** IP networks in CIDR notation allowed to reach this instance externally. Omit/empty = internal-only. */
+  allowedIPs?: string[]
 }
 
 export interface ConnectionInfo {
+  /** External LoadBalancer IP if the instance is external, otherwise an in-cluster DNS name. */
   host: string
   port: number
   database: string
