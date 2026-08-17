@@ -20,7 +20,10 @@ spec:
         - name: paas-api
           image: registry.onstackit.cloud/moheddine-paas/paas-api:5b353a2
           ports:
-            - containerPort: 8080
+            - name: http
+              containerPort: 8080
+            - name: metrics
+              containerPort: 9090
           env:
             - name: DATABASE_URL
               valueFrom:

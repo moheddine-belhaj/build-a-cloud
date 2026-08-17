@@ -1,0 +1,62 @@
+# SingleBinary deployment mode: no object-storage backend needed, everything
+# (index + chunks) lives on one PVC. Right-sized for a small, learning-stage
+# cluster (2 nodes, ~6Gi allocatable memory each) — the distributed/scalable
+# mode (separate read/write/backend components) is overkill here.
+loki:
+  auth_enabled: false
+  commonConfig:
+    replication_factor: 1
+  storage:
+    type: filesystem
+  schemaConfig:
+    configs:
+      - from: "2024-01-01"
+        store: tsdb
+        object_store: filesystem
+        schema: v13
+        index:
+          prefix: index_
+          period: 24h
+  limits_config:
+    retention_period: 168h # 7 days, keeps storage bounded
+
+deploymentMode: SingleBinary
+
+singleBinary:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 512Mi
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClass: premium-perf4-stackit
+
+# Distributed-mode components — disabled, unused in SingleBinary mode.
+read:
+  replicas: 0
+write:
+  replicas: 0
+backend:
+  replicas: 0
+
+gateway:
+  enabled: false
+
+chunksCache:
+  enabled: false
+resultsCache:
+  enabled: false
+
+test:
+  enabled: false
+monitoring:
+  serviceMonitor:
+    enabled: false
+  selfMonitoring:
+    enabled: false
+  lokiCanary:
+    enabled: false

@@ -9,6 +9,7 @@ import (
 
 type Config struct {
 	Addr        string
+	MetricsAddr string
 	DatabaseURL string
 	JWTSecret   string
 	JWTTTL      time.Duration
@@ -16,8 +17,9 @@ type Config struct {
 
 func Load() (Config, error) {
 	cfg := Config{
-		Addr:   ":" + getEnv("PORT", "8080"),
-		JWTTTL: 24 * time.Hour,
+		Addr:        ":" + getEnv("PORT", "8080"),
+		MetricsAddr: ":" + getEnv("METRICS_PORT", "9090"),
+		JWTTTL:      24 * time.Hour,
 	}
 
 	cfg.DatabaseURL = os.Getenv("DATABASE_URL")

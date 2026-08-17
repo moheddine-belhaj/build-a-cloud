@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: paas-api
+  namespace: cnpg-system
+  labels:
+    release: kube-prometheus-stack # required: matches the Prometheus CR's serviceMonitorSelector
+spec:
+  selector:
+    matchLabels:
+      app: paas-api
+  namespaceSelector:
+    matchNames:
+      - cnpg-system
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s

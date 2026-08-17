@@ -10,6 +10,7 @@ import (
 	"github.com/moheddine-belhaj/build-a-cloud/week-4/api/internal/handlers"
 	"github.com/moheddine-belhaj/build-a-cloud/week-4/api/internal/k8s"
 	"github.com/moheddine-belhaj/build-a-cloud/week-4/api/internal/middleware"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func main() {
@@ -55,6 +56,13 @@ func main() {
 		srv.ListInstanceServices(w, r, r.PathValue("id"))
 	}))
 
+	go func() {
+		metricsMux := http.NewServeMux()
+		metricsMux.Handle("GET /metrics", promhttp.Handler())
+		log.Println("metrics listening on", cfg.MetricsAddr)
+		log.Fatal(http.ListenAndServe(cfg.MetricsAddr, metricsMux))
+	}()
+
 	log.Println("listening on", cfg.Addr)
-	log.Fatal(http.ListenAndServe(cfg.Addr, middleware.Logging(middleware.CORS(mux))))
+	log.Fatal(http.ListenAndServe(cfg.Addr, middleware.Logging(middleware.Metrics(middleware.CORS(mux)))))
 }
