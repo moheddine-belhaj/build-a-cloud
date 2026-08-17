@@ -13,7 +13,7 @@ resource "stackit_ske_cluster" "ske_cluster" {
     name               = "default"
     machine_type       = "g1a.2d"
     minimum            = 2
-    maximum            = 3
+    maximum            = 5
     availability_zones = ["eu01-1", "eu01-2", "eu01-3"]
     os_name            = "flatcar"
     volume_size        = 32
