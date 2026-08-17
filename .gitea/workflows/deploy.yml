@@ -10,7 +10,7 @@ jobs:
     runs-on: stackit-ubuntu-22
     defaults:
       run:
-        working-directory: week-2/infra
+        working-directory: week-4/infra
 
     steps:
       - uses: actions/checkout@v4
