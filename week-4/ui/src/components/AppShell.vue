@@ -12,6 +12,7 @@ const { theme, toggle } = useTheme()
 
 const isInstances = computed(() => route.path.startsWith('/instances'))
 const isUsers = computed(() => route.path.startsWith('/users'))
+const isActivity = computed(() => route.path.startsWith('/activity'))
 
 const initials = computed(() => {
   const email = auth.email ?? ''
@@ -63,6 +64,19 @@ function logout() {
             <path d="M15.7 13.6c2.3.3 4 2.1 4.1 4.9" />
           </svg>
           Users
+        </RouterLink>
+        <RouterLink
+          to="/activity"
+          class="flex items-center gap-2.5 rounded-md border-l-2 px-2.5 py-2 text-[13.5px] font-medium transition-colors"
+          :class="isActivity
+            ? 'border-accent bg-accent-soft font-semibold text-accent'
+            : 'border-transparent text-muted hover:bg-surface-hover hover:text-foreground'"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0" :class="isActivity ? 'opacity-100' : 'opacity-85'">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 7v5l3.5 2" />
+          </svg>
+          Activity
         </RouterLink>
       </nav>
 

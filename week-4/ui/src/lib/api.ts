@@ -133,6 +133,28 @@ export interface ConnectionInfo {
   password: string
 }
 
+export type AuditAction =
+  | 'user.registered'
+  | 'user.login'
+  | 'login.failed'
+  | 'instance.created'
+  | 'instance.updated'
+  | 'instance.deleted'
+  | 'credentials.viewed'
+
+/** One recorded action, newest-first. A permanent per-account history —
+ * distinct from operational/infrastructure logging, scoped to only the
+ * authenticated user's own activity. */
+export interface AuditLogEntry {
+  id: number
+  action: AuditAction
+  /** Absent for account-level events (registration, login) not tied to a specific instance. */
+  instanceName?: string
+  /** Action-specific detail, e.g. which fields changed on an update. */
+  metadata?: Record<string, unknown>
+  createdAt: string
+}
+
 export const authApi = {
   register: (body: RegisterRequest) =>
     request<AuthResponse>('/v1/auth/register', { method: 'POST', body: JSON.stringify(body) }),
@@ -156,4 +178,13 @@ export const instancesApi = {
     request<ConnectionInfo>(`/v1/instances/${encodeURIComponent(id)}/connection`),
   services: (id: string) =>
     request<ServiceInfo[]>(`/v1/instances/${encodeURIComponent(id)}/services`),
+}
+
+export const auditLogsApi = {
+  list: (params: { limit?: number; offset?: number } = {}) =>
+    request<AuditLogEntry[]>(`/v1/audit-logs?${new URLSearchParams(params as Record<string, string>)}`),
+  listForInstance: (id: string, params: { limit?: number; offset?: number } = {}) =>
+    request<AuditLogEntry[]>(
+      `/v1/instances/${encodeURIComponent(id)}/audit-logs?${new URLSearchParams(params as Record<string, string>)}`,
+    ),
 }
