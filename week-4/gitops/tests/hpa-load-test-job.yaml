@@ -1,0 +1,26 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: hpa-load-test
+  namespace: cnpg-system
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: hey
+          image: williamyeh/hey:latest
+          args:
+            - "-z"
+            - "4m"      # run for 4 minutes
+            - "-c"
+            - "50"      # 50 concurrent workers
+            - "-m"
+            - "POST"
+            - "-H"
+            - "Content-Type: application/json"
+            - "-d"
+            - '{"email":"hpa-loadtest@example.com","password":"loadtest1234"}'
+            - "http://paas-api.cnpg-system.svc.cluster.local/v1/auth/login"
