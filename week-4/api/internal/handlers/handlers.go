@@ -125,6 +125,12 @@ func (s *Server) CreateInstance(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	s.audit(r, userID, ActionInstanceCreated, &req.Name, map[string]any{
+		"instances":   *req.Instances,
+		"storageSize": *req.StorageSize,
+		"external":    len(req.AllowedIPs) > 0,
+	})
+
 	name := obj.GetName()
 	createdAt := obj.GetCreationTimestamp().Time
 	resp := types.Instance{
@@ -280,6 +286,19 @@ func (s *Server) UpdateInstance(w http.ResponseWriter, r *http.Request, id strin
 		}
 	}
 
+	changed := map[string]any{}
+	if req.Instances != nil {
+		changed["instances"] = *req.Instances
+	}
+	if req.StorageSize != nil {
+		changed["storageSize"] = *req.StorageSize
+	}
+	if req.AllowedIPs != nil {
+		changed["allowedIPs"] = req.AllowedIPs
+	}
+	userID, _ := middleware.UserIDFromContext(r.Context())
+	s.audit(r, userID, ActionInstanceUpdated, &id, changed)
+
 	resp := s.instanceFromCluster(r.Context(), obj)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
@@ -295,6 +314,13 @@ func (s *Server) DeleteInstance(w http.ResponseWriter, r *http.Request, id strin
 		return
 	}
 	_ = k8s.DeleteExternalService(r.Context(), s.dyn, id)
+
+	// Recorded before DeleteInstanceRecord purely for clarity of intent —
+	// audit_logs.instance_name has no FK to instances, so this row survives
+	// the delete either way (see schema.sql).
+	userID, _ := middleware.UserIDFromContext(r.Context())
+	s.audit(r, userID, ActionInstanceDeleted, &id, nil)
+
 	_ = s.store.DeleteInstanceRecord(r.Context(), id)
 	w.WriteHeader(http.StatusAccepted)
 }
@@ -399,6 +425,9 @@ func (s *Server) GetInstanceConnection(w http.ResponseWriter, r *http.Request, i
 		}
 		host = ip
 	}
+
+	userID, _ := middleware.UserIDFromContext(r.Context())
+	s.audit(r, userID, ActionCredentialsView, &id, nil)
 
 	resp := types.ConnectionInfo{
 		Host:     ptr(host),

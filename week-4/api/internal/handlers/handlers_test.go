@@ -33,6 +33,8 @@ type fakeStore struct {
 	usersByEmail map[string]store.User
 	nextUserID   int64
 	instances    map[string]int64 // name -> owner id
+	auditLogs    []store.AuditLog
+	nextAuditID  int64
 }
 
 func newFakeStore() *fakeStore {
@@ -89,6 +91,36 @@ func (f *fakeStore) ListOwned(ctx context.Context, ownerID int64) (map[string]bo
 		}
 	}
 	return owned, nil
+}
+
+func (f *fakeStore) RecordAuditLog(ctx context.Context, userID int64, action string, instanceName *string, metadata map[string]any) error {
+	f.nextAuditID++
+	f.auditLogs = append(f.auditLogs, store.AuditLog{
+		ID: f.nextAuditID, UserID: userID, Action: action, InstanceName: instanceName, Metadata: metadata,
+	})
+	return nil
+}
+
+func (f *fakeStore) ListAuditLogs(ctx context.Context, userID int64, instanceName *string, limit, offset int) ([]store.AuditLog, error) {
+	var matched []store.AuditLog
+	for i := len(f.auditLogs) - 1; i >= 0; i-- { // newest first
+		l := f.auditLogs[i]
+		if l.UserID != userID {
+			continue
+		}
+		if instanceName != nil && (l.InstanceName == nil || *l.InstanceName != *instanceName) {
+			continue
+		}
+		matched = append(matched, l)
+	}
+	if offset >= len(matched) {
+		return []store.AuditLog{}, nil
+	}
+	end := offset + limit
+	if end > len(matched) {
+		end = len(matched)
+	}
+	return matched[offset:end], nil
 }
 
 func newFakeServer(objects ...runtime.Object) (*handlers.Server, dynamic.Interface, *fakeStore) {

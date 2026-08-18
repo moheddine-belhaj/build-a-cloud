@@ -46,6 +46,7 @@ func (s *Server) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.audit(r, user.ID, ActionUserRegistered, nil, nil)
 	s.issueToken(w, user.ID, user.Email, http.StatusCreated)
 }
 
@@ -58,11 +59,18 @@ func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 
 	email := strings.ToLower(strings.TrimSpace(req.Email))
 	user, err := s.store.GetUserByEmail(r.Context(), email)
-	if err != nil || !auth.CheckPassword(user.PasswordHash, req.Password) {
+	if err != nil {
+		// No matching account — nothing to attach an audit record to.
+		http.Error(w, `{"message":"invalid email or password"}`, http.StatusUnauthorized)
+		return
+	}
+	if !auth.CheckPassword(user.PasswordHash, req.Password) {
+		s.audit(r, user.ID, ActionLoginFailed, nil, nil)
 		http.Error(w, `{"message":"invalid email or password"}`, http.StatusUnauthorized)
 		return
 	}
 
+	s.audit(r, user.ID, ActionUserLoggedIn, nil, nil)
 	s.issueToken(w, user.ID, user.Email, http.StatusOK)
 }
 

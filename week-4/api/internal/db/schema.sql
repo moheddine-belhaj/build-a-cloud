@@ -20,3 +20,20 @@ CREATE TABLE IF NOT EXISTS instances (
 );
 
 CREATE INDEX IF NOT EXISTS instances_owner_id_idx ON instances(owner_id);
+
+-- instance_name is deliberately a plain column, not a foreign key into
+-- instances(name). instances rows are deleted when an instance is deleted
+-- (see DeleteInstanceRecord) — an FK with cascade semantics would destroy the
+-- "instance.deleted" audit row at the exact moment it becomes the one record
+-- that matters most. Audit history must outlive the resource it describes.
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id            BIGSERIAL PRIMARY KEY,
+    user_id       BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    action        TEXT NOT NULL,
+    instance_name TEXT,
+    metadata      JSONB NOT NULL DEFAULT '{}',
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS audit_logs_user_id_idx ON audit_logs(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS audit_logs_instance_name_idx ON audit_logs(instance_name, created_at DESC) WHERE instance_name IS NOT NULL;

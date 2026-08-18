@@ -13,6 +13,13 @@ tags:
     description: Register an account and obtain a JWT to use as a bearer token on all other endpoints.
   - name: Instances
     description: Create, inspect, and remove product instances, and retrieve their connection details. Each instance is scoped to the authenticated user who created it.
+  - name: Audit Logs
+    description: >
+      A permanent, per-account record of actions taken through this API
+      (account creation/login, instance creation/modification/deletion,
+      credential retrieval). Distinct from operational/infrastructure
+      logging — this is scoped to the authenticated user's own history and
+      retrievable through the API, not raw pod output.
 
 security:
   - bearerAuth: []
@@ -238,6 +245,57 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ServiceInfo'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /v1/audit-logs:
+    get:
+      tags: [Audit Logs]
+      summary: List your own activity
+      description: >
+        Every recorded action across all of the authenticated user's
+        instances, plus account-level events (registration, login, failed
+        login attempts), newest first.
+      operationId: listAuditLogs
+      parameters:
+        - $ref: '#/components/parameters/AuditLogLimit'
+        - $ref: '#/components/parameters/AuditLogOffset'
+      responses:
+        '200':
+          description: Audit log entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuditLogEntry'
+
+  /v1/instances/{id}/audit-logs:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The instance's unique name.
+        schema:
+          type: string
+        example: api-test-1
+    get:
+      tags: [Audit Logs]
+      summary: List activity for one instance
+      description: Same as GET /v1/audit-logs, scoped to a single instance the caller owns.
+      operationId: listInstanceAuditLogs
+      parameters:
+        - $ref: '#/components/parameters/AuditLogLimit'
+        - $ref: '#/components/parameters/AuditLogOffset'
+      responses:
+        '200':
+          description: Audit log entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuditLogEntry'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -480,11 +538,59 @@ components:
           type: string
           description: Auto-generated at instance creation. Not recoverable if lost — the instance must be recreated.
 
+    AuditLogEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        action:
+          type: string
+          enum:
+            - user.registered
+            - user.login
+            - login.failed
+            - instance.created
+            - instance.updated
+            - instance.deleted
+            - credentials.viewed
+          example: instance.created
+        instanceName:
+          type: string
+          description: Absent for account-level events (registration, login) not tied to a specific instance.
+          example: api-test-1
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Action-specific detail — e.g. which fields changed on an update.
+        createdAt:
+          type: string
+          format: date-time
+
     Error:
       type: object
       properties:
         message:
           type: string
+
+  parameters:
+    AuditLogLimit:
+      name: limit
+      in: query
+      description: Max entries to return. Defaults to 50, capped at 200.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+    AuditLogOffset:
+      name: offset
+      in: query
+      description: Number of entries to skip, for paging past the first `limit`.
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
 
   responses:
     BadRequest:

@@ -96,3 +96,13 @@ type AuthResponse struct {
 	Token     string    `json:"token"`
 	ExpiresAt time.Time `json:"expiresAt"`
 }
+
+// AuditLogEntry is one recorded user action, returned newest-first from
+// GET /v1/audit-logs and GET /v1/instances/{id}/audit-logs.
+type AuditLogEntry struct {
+	Id           *int64         `json:"id,omitempty"`
+	Action       *string        `json:"action,omitempty"`
+	InstanceName *string        `json:"instanceName,omitempty"`
+	Metadata     map[string]any `json:"metadata,omitempty"`
+	CreatedAt    *time.Time     `json:"createdAt,omitempty"`
+}

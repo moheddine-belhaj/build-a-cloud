@@ -60,6 +60,10 @@ func main() {
 	mux.HandleFunc("GET /v1/instances/{id}/services", requireAuth(func(w http.ResponseWriter, r *http.Request) {
 		srv.ListInstanceServices(w, r, r.PathValue("id"))
 	}))
+	mux.HandleFunc("GET /v1/audit-logs", requireAuth(srv.ListAuditLogs))
+	mux.HandleFunc("GET /v1/instances/{id}/audit-logs", requireAuth(func(w http.ResponseWriter, r *http.Request) {
+		srv.ListInstanceAuditLogs(w, r, r.PathValue("id"))
+	}))
 
 	metricsMux := http.NewServeMux()
 	metricsMux.Handle("GET /metrics", promhttp.Handler())
