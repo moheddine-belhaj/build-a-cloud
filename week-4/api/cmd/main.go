@@ -2,8 +2,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net/http"
+	"os/signal"
+	"sync"
+	"syscall"
+	"time"
 
 	"github.com/moheddine-belhaj/build-a-cloud/week-4/api/internal/config"
 	"github.com/moheddine-belhaj/build-a-cloud/week-4/api/internal/db"
@@ -56,13 +61,50 @@ func main() {
 		srv.ListInstanceServices(w, r, r.PathValue("id"))
 	}))
 
+	metricsMux := http.NewServeMux()
+	metricsMux.Handle("GET /metrics", promhttp.Handler())
+	metricsServer := &http.Server{Addr: cfg.MetricsAddr, Handler: metricsMux}
+
+	apiServer := &http.Server{
+		Addr:    cfg.Addr,
+		Handler: middleware.Logging(middleware.Metrics(middleware.CORS(mux))),
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
+	defer stop()
+
+	var wg sync.WaitGroup
+	wg.Add(2)
 	go func() {
-		metricsMux := http.NewServeMux()
-		metricsMux.Handle("GET /metrics", promhttp.Handler())
+		defer wg.Done()
 		log.Println("metrics listening on", cfg.MetricsAddr)
-		log.Fatal(http.ListenAndServe(cfg.MetricsAddr, metricsMux))
+		if err := metricsServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("metrics server failed: %v", err)
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		log.Println("listening on", cfg.Addr)
+		if err := apiServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("api server failed: %v", err)
+		}
 	}()
 
-	log.Println("listening on", cfg.Addr)
-	log.Fatal(http.ListenAndServe(cfg.Addr, middleware.Logging(middleware.Metrics(middleware.CORS(mux)))))
+	<-ctx.Done()
+	log.Println("shutdown signal received, draining in-flight requests")
+
+	// terminationGracePeriodSeconds is 30s; leave a margin so the process
+	// still exits (closing the DB pool via defer) before Kubernetes SIGKILLs it.
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+	defer cancel()
+
+	if err := apiServer.Shutdown(shutdownCtx); err != nil {
+		log.Printf("api server shutdown error: %v", err)
+	}
+	if err := metricsServer.Shutdown(shutdownCtx); err != nil {
+		log.Printf("metrics server shutdown error: %v", err)
+	}
+
+	wg.Wait()
+	log.Println("shutdown complete")
 }
