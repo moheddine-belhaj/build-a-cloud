@@ -18,6 +18,7 @@ const (
 	ActionInstanceUpdated = "instance.updated"
 	ActionInstanceDeleted = "instance.deleted"
 	ActionCredentialsView = "credentials.viewed"
+	ActionQueryExecuted   = "query.executed"
 )
 
 const (
