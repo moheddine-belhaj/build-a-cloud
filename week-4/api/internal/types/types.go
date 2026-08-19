@@ -23,12 +23,12 @@ type CreateInstanceRequest struct {
 	AllowedIPs   []string `json:"allowedIPs,omitempty"`
 }
 
-// UpdateInstanceRequest carries a partial update — only name, storageClass,
+// UpdateInstanceRequest carries a partial update only name, storageClass,
 // database, and username are truly immutable on a live CNPG Cluster (fixed
 // at initdb bootstrap or by Kubernetes object-name semantics), so those
 // aren't represented here. A nil field means "leave unchanged"; AllowedIPs
 // is a plain slice (not a pointer) so an explicit `"allowedIPs": []` can be
-// told apart from an omitted key — the former clears external access, the
+// told apart from an omitted key the former clears external access, the
 // latter leaves it as-is.
 type UpdateInstanceRequest struct {
 	Instances   *int     `json:"instances,omitempty"`
@@ -58,7 +58,7 @@ type ServicePort struct {
 }
 
 // ServiceInfo describes one of the Postgres endpoints CNPG exposes for an
-// instance — e.g. "<name>-rw" (primary), "<name>-ro" (read-only replicas),
+// instance e.g. "<name>-rw" (primary), "<name>-ro" (read-only replicas),
 // "<name>-r" (any replica).
 type ServiceInfo struct {
 	Name       *string       `json:"name,omitempty"`
@@ -95,6 +95,29 @@ type LoginRequest struct {
 type AuthResponse struct {
 	Token     string    `json:"token"`
 	ExpiresAt time.Time `json:"expiresAt"`
+}
+
+// QueryRequest carries a single arbitrary SQL statement to run against one
+// instance's own database not the control-plane database.
+type QueryRequest struct {
+	Query string `json:"query"`
+	// ReadOnly, if true, runs the statement inside a BEGIN READ ONLY
+	// transaction, so Postgres itself rejects any data/schema-modifying
+	// statement rather than relying on client-side inspection of the SQL text.
+	ReadOnly *bool `json:"readOnly,omitempty"`
+}
+
+// QueryResult reports either a result set (Columns/Rows, for SELECT-like
+// statements) or an affected-row count (RowsAffected, for INSERT/UPDATE/
+// DELETE/DDL)  never both. Which shape applies is determined purely from
+// Postgres's own response, not by inspecting the query text.
+type QueryResult struct {
+	Columns      []string `json:"columns,omitempty"`
+	Rows         [][]any  `json:"rows,omitempty"`
+	RowsAffected *int64   `json:"rowsAffected,omitempty"`
+	// Command is Postgres's own command tag (e.g. "SELECT 3", "INSERT 0 1",
+	// "CREATE TABLE")  a human-readable confirmation of what ran.
+	Command *string `json:"command,omitempty"`
 }
 
 // AuditLogEntry is one recorded user action, returned newest-first from
