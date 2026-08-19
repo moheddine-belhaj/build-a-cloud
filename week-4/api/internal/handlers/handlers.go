@@ -25,7 +25,7 @@ import (
 // this is a real trust boundary, not just cosmetic validation.
 var postgresIdentifierRe = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]{0,62}$`)
 
-// allowedStorageClasses is the server-side source of truth for storageClass —
+// allowedStorageClasses is the server-side source of truth for storageClass 
 // the UI only offers these as a dropdown, but that's a client-side nicety,
 // not enforcement, so it's re-checked here.
 var allowedStorageClasses = map[string]bool{
@@ -46,7 +46,7 @@ func NewServer(dyn dynamic.Interface, st store.Store, jwtSecret string, jwtTTL t
 func ptr[T any](v T) *T { return &v }
 
 // writeJSONError properly JSON-encodes the message instead of splicing it
-// into a hand-written string — needed wherever the message embeds
+// into a hand-written string  needed wherever the message embeds
 // user-supplied input (e.g. an invalid CIDR) that could otherwise break the
 // response's JSON syntax.
 func writeJSONError(w http.ResponseWriter, status int, message string) {
@@ -113,8 +113,8 @@ func (s *Server) CreateInstance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// A dedicated LoadBalancer Service per instance — not CNPG's own "-rw"
-	// Service — is what lets each instance carry its own external IP and its
+	// A dedicated LoadBalancer Service per instance  not CNPG's own "-rw"
+	// Service  is what lets each instance carry its own external IP and its
 	// own loadBalancerSourceRanges allowlist.
 	if len(req.AllowedIPs) > 0 {
 		if _, err := k8s.CreateExternalService(r.Context(), s.dyn, req.Name, req.AllowedIPs); err != nil {
@@ -195,7 +195,7 @@ func (s *Server) GetInstance(w http.ResponseWriter, r *http.Request, id string) 
 }
 
 // instanceFromCluster builds the API's Instance view straight off a live
-// Cluster object — shared by every endpoint that returns full instance
+// Cluster object  shared by every endpoint that returns full instance
 // state (list, get, update) so they can't drift from each other.
 func (s *Server) instanceFromCluster(ctx context.Context, obj *unstructured.Unstructured) types.Instance {
 	name := obj.GetName()
@@ -315,7 +315,7 @@ func (s *Server) DeleteInstance(w http.ResponseWriter, r *http.Request, id strin
 	}
 	_ = k8s.DeleteExternalService(r.Context(), s.dyn, id)
 
-	// Recorded before DeleteInstanceRecord purely for clarity of intent —
+	// Recorded before DeleteInstanceRecord purely for clarity of intent 
 	// audit_logs.instance_name has no FK to instances, so this row survives
 	// the delete either way (see schema.sql).
 	userID, _ := middleware.UserIDFromContext(r.Context())
@@ -343,8 +343,8 @@ func (s *Server) authorizeOwner(w http.ResponseWriter, r *http.Request, name str
 }
 
 // ListInstanceServices returns the Postgres endpoints CNPG exposes for an
-// instance — the "-rw"/"-ro"/"-r" ClusterIP Services it manages
-// automatically — so the UI can show connection targets beyond just the
+// instance  the "-rw"/"-ro"/"-r" ClusterIP Services it manages
+// automatically  so the UI can show connection targets beyond just the
 // primary without the caller needing kubectl access.
 func (s *Server) ListInstanceServices(w http.ResponseWriter, r *http.Request, id string) {
 	if !s.authorizeOwner(w, r, id) {
@@ -363,7 +363,7 @@ func (s *Server) ListInstanceServices(w http.ResponseWriter, r *http.Request, id
 	}
 	// The "<name>-external" LoadBalancer Service is managed by this API, not
 	// CNPG (see external_service.go), so it carries a different label than
-	// the "cnpg.io/cluster" one ListInstanceServices selects on — fetched
+	// the "cnpg.io/cluster" one ListInstanceServices selects on  fetched
 	// separately here so it still shows up alongside the rw/ro/r endpoints.
 	if extSvc, err := k8s.GetExternalService(r.Context(), s.dyn, id); err == nil {
 		summaries = append(summaries, k8s.SummarizeService(extSvc))
@@ -393,49 +393,70 @@ func (s *Server) ListInstanceServices(w http.ResponseWriter, r *http.Request, id
 	json.NewEncoder(w).Encode(out)
 }
 
-func (s *Server) GetInstanceConnection(w http.ResponseWriter, r *http.Request, id string) {
-	if !s.authorizeOwner(w, r, id) {
-		return
-	}
+var (
+	// errInstanceNotReady and errExternalIPPending are sentinels so callers
+	// of resolveInstanceConnection (GetInstanceConnection, RunInstanceQuery)
+	// can each turn them into a 409 with the exact same message, without
+	// duplicating the two conditions that produce them.
+	errInstanceNotReady  = errors.New("instance hasn't finished provisioning yet")
+	errExternalIPPending = errors.New("external endpoint is still being provisioned")
+)
 
-	// The app-user Secret only exists once CNPG's initdb bootstrap has run —
+// resolveInstanceConnection resolves everything needed to open a connection
+// to one instance's own database: host/port/credentials from the CNPG-
+// managed app Secret, and  if the instance was created with allowedIPs 
+// its external LoadBalancer IP in place of the in-cluster DNS name. This is
+// the single place that logic lives; GetInstanceConnection and
+// RunInstanceQuery both call it rather than each resolving it themselves.
+func (s *Server) resolveInstanceConnection(ctx context.Context, id string) (types.ConnectionInfo, error) {
+	// The app-user Secret only exists once CNPG's initdb bootstrap has run 
 	// using it as the readiness gate is more reliable than the Cluster's
 	// status.phase, whose actual values ("Cluster in healthy state", etc.)
 	// don't match the Healthy/Degraded enum this API documents.
-	secret, err := k8s.GetInstanceSecret(r.Context(), s.dyn, id)
+	secret, err := k8s.GetInstanceSecret(ctx, s.dyn, id)
 	if err != nil {
-		writeJSONError(w, http.StatusConflict, "instance hasn't finished provisioning yet")
-		return
+		return types.ConnectionInfo{}, errInstanceNotReady
 	}
 	username, password, dbname, err := k8s.ExtractCredentials(secret)
 	if err != nil {
-		writeJSONError(w, http.StatusConflict, "instance hasn't finished provisioning yet")
-		return
+		return types.ConnectionInfo{}, errInstanceNotReady
 	}
 
 	host := id + "-rw." + k8s.Namespace + ".svc.cluster.local"
-	if extSvc, err := k8s.GetExternalService(r.Context(), s.dyn, id); err == nil {
+	if extSvc, err := k8s.GetExternalService(ctx, s.dyn, id); err == nil {
 		ip := k8s.ExtractLoadBalancerIP(extSvc)
 		if ip == "" {
 			// allowedIPs was set at creation, but STACKIT hasn't finished
-			// assigning the external IP yet — distinct from the database
+			// assigning the external IP yet  distinct from the database
 			// itself not being ready.
-			writeJSONError(w, http.StatusConflict, "external endpoint is still being provisioned")
-			return
+			return types.ConnectionInfo{}, errExternalIPPending
 		}
 		host = ip
 	}
 
-	userID, _ := middleware.UserIDFromContext(r.Context())
-	s.audit(r, userID, ActionCredentialsView, &id, nil)
-
-	resp := types.ConnectionInfo{
+	return types.ConnectionInfo{
 		Host:     ptr(host),
 		Port:     ptr(5432),
 		Database: ptr(dbname),
 		Username: ptr(username),
 		Password: ptr(password),
+	}, nil
+}
+
+func (s *Server) GetInstanceConnection(w http.ResponseWriter, r *http.Request, id string) {
+	if !s.authorizeOwner(w, r, id) {
+		return
 	}
+
+	resp, err := s.resolveInstanceConnection(r.Context(), id)
+	if err != nil {
+		writeJSONError(w, http.StatusConflict, err.Error())
+		return
+	}
+
+	userID, _ := middleware.UserIDFromContext(r.Context())
+	s.audit(r, userID, ActionCredentialsView, &id, nil)
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
 }
