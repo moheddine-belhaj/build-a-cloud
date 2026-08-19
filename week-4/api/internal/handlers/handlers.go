@@ -25,7 +25,7 @@ import (
 // this is a real trust boundary, not just cosmetic validation.
 var postgresIdentifierRe = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]{0,62}$`)
 
-// allowedStorageClasses is the server-side source of truth for storageClass 
+// allowedStorageClasses is the server-side source of truth for storageClass
 // the UI only offers these as a dropdown, but that's a client-side nicety,
 // not enforcement, so it's re-checked here.
 var allowedStorageClasses = map[string]bool{
@@ -315,7 +315,7 @@ func (s *Server) DeleteInstance(w http.ResponseWriter, r *http.Request, id strin
 	}
 	_ = k8s.DeleteExternalService(r.Context(), s.dyn, id)
 
-	// Recorded before DeleteInstanceRecord purely for clarity of intent 
+	// Recorded before DeleteInstanceRecord purely for clarity of intent
 	// audit_logs.instance_name has no FK to instances, so this row survives
 	// the delete either way (see schema.sql).
 	userID, _ := middleware.UserIDFromContext(r.Context())
@@ -395,39 +395,54 @@ func (s *Server) ListInstanceServices(w http.ResponseWriter, r *http.Request, id
 
 var (
 	// errInstanceNotReady and errExternalIPPending are sentinels so callers
-	// of resolveInstanceConnection (GetInstanceConnection, RunInstanceQuery)
 	// can each turn them into a 409 with the exact same message, without
 	// duplicating the two conditions that produce them.
 	errInstanceNotReady  = errors.New("instance hasn't finished provisioning yet")
 	errExternalIPPending = errors.New("external endpoint is still being provisioned")
 )
 
-// resolveInstanceConnection resolves everything needed to open a connection
-// to one instance's own database: host/port/credentials from the CNPG-
-// managed app Secret, and  if the instance was created with allowedIPs 
-// its external LoadBalancer IP in place of the in-cluster DNS name. This is
-// the single place that logic lives; GetInstanceConnection and
-// RunInstanceQuery both call it rather than each resolving it themselves.
-func (s *Server) resolveInstanceConnection(ctx context.Context, id string) (types.ConnectionInfo, error) {
-	// The app-user Secret only exists once CNPG's initdb bootstrap has run 
+func inClusterHost(id string) string {
+	return id + "-rw." + k8s.Namespace + ".svc.cluster.local"
+}
+
+// resolveInstanceCredentials reads the CNPG-managed app Secret - the part of
+// connection resolution that's identical regardless of which host ends up
+// being used. Shared by resolveInstanceConnection and
+// resolveInstanceConnectionInCluster.
+func (s *Server) resolveInstanceCredentials(ctx context.Context, id string) (username, password, dbname string, err error) {
+	
+	// The app-user Secret only exists once CNPG's initdb bootstrap has run
 	// using it as the readiness gate is more reliable than the Cluster's
 	// status.phase, whose actual values ("Cluster in healthy state", etc.)
-	// don't match the Healthy/Degraded enum this API documents.
+
 	secret, err := k8s.GetInstanceSecret(ctx, s.dyn, id)
 	if err != nil {
-		return types.ConnectionInfo{}, errInstanceNotReady
+		return "", "", "", errInstanceNotReady
 	}
-	username, password, dbname, err := k8s.ExtractCredentials(secret)
+	username, password, dbname, err = k8s.ExtractCredentials(secret)
 	if err != nil {
-		return types.ConnectionInfo{}, errInstanceNotReady
+		return "", "", "", errInstanceNotReady
+	}
+	return username, password, dbname, nil
+}
+
+// resolveInstanceConnection resolves connection info for an EXTERNAL client
+// (the caller of GET /v1/instances/{id}/connection, outside the cluster):
+// the in-cluster DNS name, or if the instance was created with
+// allowedIPs its external LoadBalancer IP instead, since an outside
+// client can't reach the in-cluster name at all.
+func (s *Server) resolveInstanceConnection(ctx context.Context, id string) (types.ConnectionInfo, error) {
+	username, password, dbname, err := s.resolveInstanceCredentials(ctx, id)
+	if err != nil {
+		return types.ConnectionInfo{}, err
 	}
 
-	host := id + "-rw." + k8s.Namespace + ".svc.cluster.local"
+	host := inClusterHost(id)
 	if extSvc, err := k8s.GetExternalService(ctx, s.dyn, id); err == nil {
 		ip := k8s.ExtractLoadBalancerIP(extSvc)
 		if ip == "" {
 			// allowedIPs was set at creation, but STACKIT hasn't finished
-			// assigning the external IP yet  distinct from the database
+			// assigning the external IP yet - distinct from the database
 			// itself not being ready.
 			return types.ConnectionInfo{}, errExternalIPPending
 		}
@@ -436,6 +451,24 @@ func (s *Server) resolveInstanceConnection(ctx context.Context, id string) (type
 
 	return types.ConnectionInfo{
 		Host:     ptr(host),
+		Port:     ptr(5432),
+		Database: ptr(dbname),
+		Username: ptr(username),
+		Password: ptr(password),
+	}, nil
+}
+// resolveInstanceConnectionInCluster resolves connection info for
+// RunInstanceQuery, whose caller is paas-api itself always running
+// inside the cluster so it can never use the external LoadBalancer IP, even if one exists.
+
+func (s *Server) resolveInstanceConnectionInCluster(ctx context.Context, id string) (types.ConnectionInfo, error) {
+	username, password, dbname, err := s.resolveInstanceCredentials(ctx, id)
+	if err != nil {
+		return types.ConnectionInfo{}, err
+	}
+
+	return types.ConnectionInfo{
+		Host:     ptr(inClusterHost(id)),
 		Port:     ptr(5432),
 		Database: ptr(dbname),
 		Username: ptr(username),

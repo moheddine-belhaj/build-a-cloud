@@ -62,7 +62,11 @@ func (s *Server) RunInstanceQuery(w http.ResponseWriter, r *http.Request, id str
 		return
 	}
 
-	connInfo, err := s.resolveInstanceConnection(r.Context(), id)
+	// resolves the in-cluster host, never the external LoadBalancer
+	// IP  paas-api itself always runs inside the cluster, and that IP is
+	// unreachable from here regardless (STACKIT's LB doesn't support a pod
+	// reaching its own cluster's Service via the external IP)
+	connInfo, err := s.resolveInstanceConnectionInCluster(r.Context(), id)
 	if err != nil {
 		writeJSONError(w, http.StatusConflict, err.Error())
 		return
@@ -96,7 +100,7 @@ func (s *Server) RunInstanceQuery(w http.ResponseWriter, r *http.Request, id str
 }
 
 // runQuery executes one statement and returns its result plus a coarse
-// classification of what kind of statement it was 
+// classification of what kind of statement it was
 func runQuery(ctx context.Context, conn QueryRunner, query string, readOnly bool) (types.QueryResult, string, error) {
 	if err := execAndDrain(ctx, conn, "SET statement_timeout = '"+instanceQueryStatementTimeout+"'"); err != nil {
 		return types.QueryResult{}, "", err
