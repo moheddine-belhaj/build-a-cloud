@@ -18,7 +18,7 @@ spec:
         - name: paas-api-registry-pull
       containers:
         - name: paas-api
-          image: registry.onstackit.cloud/moheddine-paas/paas-api:1e6dc1b
+          image: registry.onstackit.cloud/moheddine-paas/paas-api:e0b9b70
           ports:
             - name: http
               containerPort: 8080
