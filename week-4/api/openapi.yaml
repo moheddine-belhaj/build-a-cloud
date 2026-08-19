@@ -190,6 +190,69 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /v1/instances/{id}/query:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The instance's unique name.
+        schema:
+          type: string
+        example: api-test-1
+    post:
+      tags: [Instances]
+      summary: Run a SQL statement against an instance's own database
+      description: >
+        Executes one arbitrary, caller-supplied SQL statement against this
+        instance's *own* database — never the platform's control-plane
+        database. For a statement that returns rows (SELECT, or anything
+        with RETURNING), the response carries `columns`/`rows`; otherwise it
+        carries `rowsAffected`. Which shape applies is determined from
+        Postgres's own response, not by inspecting the query text.
+
+
+        **Security note:** there is no query allowlisting — this endpoint
+        grants the same capability a raw connection string from
+        `GET /v1/instances/{id}/connection` already would (this platform's
+        entire purpose is handing out real database access), scoped to the
+        caller's own instance only. A statement timeout (enforced by both
+        Postgres and the request itself) bounds worst-case runaway queries.
+        Set `readOnly: true` to have Postgres itself reject any
+        data/schema-modifying statement inside a read-only transaction,
+        rather than relying on inspecting the SQL client-side.
+      operationId: runInstanceQuery
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryRequest'
+            example:
+              query: "SELECT id, name FROM widgets ORDER BY id"
+      responses:
+        '200':
+          description: Statement executed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryResult'
+        '400':
+          description: Invalid request body, empty query, or the statement itself failed (syntax error, constraint violation, read-only-transaction rejection, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Instance exists but hasn't finished provisioning yet — no database to connect to
+        '502':
+          description: Instance's database could not be reached
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /v1/instances/{id}/connection:
     parameters:
       - name: id
@@ -538,6 +601,46 @@ components:
           type: string
           description: Auto-generated at instance creation. Not recoverable if lost — the instance must be recreated.
 
+    QueryRequest:
+      type: object
+      required: [query]
+      properties:
+        query:
+          type: string
+          description: A single SQL statement to run against the instance's own database.
+          example: "SELECT id, name FROM widgets ORDER BY id"
+        readOnly:
+          type: boolean
+          default: false
+          description: >
+            If true, runs the statement inside a read-only transaction —
+            Postgres itself rejects any data/schema-modifying statement.
+
+    QueryResult:
+      type: object
+      description: >
+        Carries either a result set (`columns`/`rows`, for SELECT-like
+        statements) or `rowsAffected` (for INSERT/UPDATE/DELETE/DDL) — never
+        both.
+      properties:
+        columns:
+          type: array
+          items:
+            type: string
+        rows:
+          type: array
+          items:
+            type: array
+            items: {}
+          description: Each inner array is one row, positionally matching `columns`.
+        rowsAffected:
+          type: integer
+          format: int64
+        command:
+          type: string
+          description: Postgres's own command tag, e.g. "SELECT 3", "INSERT 0 1", "CREATE TABLE".
+          example: "SELECT 3"
+
     AuditLogEntry:
       type: object
       properties:
@@ -554,6 +657,7 @@ components:
             - instance.updated
             - instance.deleted
             - credentials.viewed
+            - query.executed
           example: instance.created
         instanceName:
           type: string
