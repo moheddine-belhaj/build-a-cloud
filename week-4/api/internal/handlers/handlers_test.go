@@ -30,11 +30,13 @@ const testUserID int64 = 1
 // fakeStore is an in-memory store.Store used so handler tests don't need a
 // real Postgres connection.
 type fakeStore struct {
-	usersByEmail map[string]store.User
-	nextUserID   int64
-	instances    map[string]int64 // name -> owner id
-	auditLogs    []store.AuditLog
-	nextAuditID  int64
+	usersByEmail  map[string]store.User
+	nextUserID    int64
+	instances     map[string]int64 // name -> owner id
+	auditLogs     []store.AuditLog
+	nextAuditID   int64
+	requestLogs   []store.RequestLog
+	nextRequestID int64
 }
 
 func newFakeStore() *fakeStore {
@@ -121,6 +123,38 @@ func (f *fakeStore) ListAuditLogs(ctx context.Context, userID int64, instanceNam
 		end = len(matched)
 	}
 	return matched[offset:end], nil
+}
+
+func (f *fakeStore) RecordRequestLog(ctx context.Context, userID *int64, method, path string, instanceName *string, status int, durationMs float64) error {
+	f.nextRequestID++
+	f.requestLogs = append(f.requestLogs, store.RequestLog{
+		ID: f.nextRequestID, UserID: userID, Method: method, Path: path,
+		InstanceName: instanceName, Status: status, DurationMs: durationMs,
+	})
+	return nil
+}
+
+func (f *fakeStore) ListRequestLogs(ctx context.Context, userID int64, instanceName *string, limit, offset int) ([]store.RequestLog, int, error) {
+	var matched []store.RequestLog
+	for i := len(f.requestLogs) - 1; i >= 0; i-- { // newest first
+		l := f.requestLogs[i]
+		if l.UserID == nil || *l.UserID != userID {
+			continue
+		}
+		if instanceName != nil && (l.InstanceName == nil || *l.InstanceName != *instanceName) {
+			continue
+		}
+		matched = append(matched, l)
+	}
+	total := len(matched)
+	if offset >= len(matched) {
+		return []store.RequestLog{}, total, nil
+	}
+	end := offset + limit
+	if end > len(matched) {
+		end = len(matched)
+	}
+	return matched[offset:end], total, nil
 }
 
 func newFakeServer(objects ...runtime.Object) (*handlers.Server, dynamic.Interface, *fakeStore) {

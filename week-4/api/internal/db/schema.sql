@@ -37,3 +37,22 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 
 CREATE INDEX IF NOT EXISTS audit_logs_user_id_idx ON audit_logs(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS audit_logs_instance_name_idx ON audit_logs(instance_name, created_at DESC) WHERE instance_name IS NOT NULL;
+
+-- request_logs is the per-request HTTP access log (method/path/status/
+-- duration) backing the UI's "Activity" pages — distinct from audit_logs,
+-- which records user-initiated actions, not raw HTTP traffic. user_id is
+-- nullable because unauthenticated routes (login, register) never resolve
+-- one, and such rows simply never match any user's filtered listing.
+CREATE TABLE IF NOT EXISTS request_logs (
+    id            BIGSERIAL PRIMARY KEY,
+    user_id       BIGINT REFERENCES users(id) ON DELETE CASCADE,
+    method        TEXT NOT NULL,
+    path          TEXT NOT NULL,
+    instance_name TEXT,
+    status        INT NOT NULL,
+    duration_ms   DOUBLE PRECISION NOT NULL,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS request_logs_user_id_idx ON request_logs(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS request_logs_instance_name_idx ON request_logs(instance_name, created_at DESC) WHERE instance_name IS NOT NULL;

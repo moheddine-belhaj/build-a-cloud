@@ -35,38 +35,7 @@ func main() {
 		log.Fatalf("failed to create k8s client: %v", err)
 	}
 	srv := handlers.NewServer(dyn, conn, cfg.JWTSecret, cfg.JWTTTL)
-
-	mux := http.NewServeMux()
-	registerDocsRoutes(mux)
-
-	mux.HandleFunc("POST /v1/auth/register", srv.Register)
-	mux.HandleFunc("POST /v1/auth/login", srv.Login)
-
-	requireAuth := middleware.RequireAuth(cfg.JWTSecret)
-	mux.HandleFunc("GET /v1/instances", requireAuth(srv.ListInstances))
-	mux.HandleFunc("POST /v1/instances", requireAuth(srv.CreateInstance))
-	mux.HandleFunc("GET /v1/instances/{id}", requireAuth(func(w http.ResponseWriter, r *http.Request) {
-		srv.GetInstance(w, r, r.PathValue("id"))
-	}))
-	mux.HandleFunc("PATCH /v1/instances/{id}", requireAuth(func(w http.ResponseWriter, r *http.Request) {
-		srv.UpdateInstance(w, r, r.PathValue("id"))
-	}))
-	mux.HandleFunc("DELETE /v1/instances/{id}", requireAuth(func(w http.ResponseWriter, r *http.Request) {
-		srv.DeleteInstance(w, r, r.PathValue("id"))
-	}))
-	mux.HandleFunc("GET /v1/instances/{id}/connection", requireAuth(func(w http.ResponseWriter, r *http.Request) {
-		srv.GetInstanceConnection(w, r, r.PathValue("id"))
-	}))
-	mux.HandleFunc("GET /v1/instances/{id}/services", requireAuth(func(w http.ResponseWriter, r *http.Request) {
-		srv.ListInstanceServices(w, r, r.PathValue("id"))
-	}))
-	mux.HandleFunc("POST /v1/instances/{id}/query", requireAuth(func(w http.ResponseWriter, r *http.Request) {
-		srv.RunInstanceQuery(w, r, r.PathValue("id"))
-	}))
-	mux.HandleFunc("GET /v1/audit-logs", requireAuth(srv.ListAuditLogs))
-	mux.HandleFunc("GET /v1/instances/{id}/audit-logs", requireAuth(func(w http.ResponseWriter, r *http.Request) {
-		srv.ListInstanceAuditLogs(w, r, r.PathValue("id"))
-	}))
+	mux := newRouter(srv, cfg.JWTSecret)
 
 	metricsMux := http.NewServeMux()
 	metricsMux.Handle("GET /metrics", promhttp.Handler())
@@ -74,7 +43,7 @@ func main() {
 
 	apiServer := &http.Server{
 		Addr:    cfg.Addr,
-		Handler: middleware.Logging(middleware.Metrics(middleware.CORS(mux))),
+		Handler: middleware.Logging(conn)(middleware.Metrics(middleware.CORS(mux))),
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)

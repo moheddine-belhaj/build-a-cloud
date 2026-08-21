@@ -362,6 +362,54 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /v1/request-logs:
+    get:
+      tags: [Request Logs]
+      summary: List your own HTTP request log
+      description: >
+        Every HTTP request handled by the API on behalf of the authenticated
+        user — method, path, status code, and duration — newest first.
+        Distinct from `/v1/audit-logs`, which records user-initiated actions
+        rather than raw request/response traffic.
+      operationId: listRequestLogs
+      parameters:
+        - $ref: '#/components/parameters/AuditLogLimit'
+        - $ref: '#/components/parameters/AuditLogOffset'
+      responses:
+        '200':
+          description: A page of request log entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestLogPage'
+
+  /v1/instances/{id}/request-logs:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: The instance's unique name.
+        schema:
+          type: string
+        example: api-test-1
+    get:
+      tags: [Request Logs]
+      summary: List the HTTP request log for one instance
+      description: Same as GET /v1/request-logs, scoped to requests whose path targeted a single instance the caller owns.
+      operationId: listInstanceRequestLogs
+      parameters:
+        - $ref: '#/components/parameters/AuditLogLimit'
+        - $ref: '#/components/parameters/AuditLogOffset'
+      responses:
+        '200':
+          description: A page of request log entries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RequestLogPage'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -670,6 +718,44 @@ components:
         createdAt:
           type: string
           format: date-time
+
+    RequestLogEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        method:
+          type: string
+          example: GET
+        path:
+          type: string
+          example: /v1/instances
+        instanceName:
+          type: string
+          description: Present only for requests whose path targeted a specific instance (i.e. included an `{id}` path segment).
+          example: api-test-1
+        status:
+          type: integer
+          example: 200
+        durationMs:
+          type: number
+          format: double
+          example: 26.724082
+        createdAt:
+          type: string
+          format: date-time
+
+    RequestLogPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/RequestLogEntry'
+        total:
+          type: integer
+          description: Total number of matching rows, independent of `limit`/`offset` — for page-count-aware pagination.
 
     Error:
       type: object

@@ -129,3 +129,24 @@ type AuditLogEntry struct {
 	Metadata     map[string]any `json:"metadata,omitempty"`
 	CreatedAt    *time.Time     `json:"createdAt,omitempty"`
 }
+
+// RequestLogEntry is one recorded HTTP request/response cycle, returned
+// newest-first from GET /v1/request-logs and
+// GET /v1/instances/{id}/request-logs.
+type RequestLogEntry struct {
+	Id           *int64     `json:"id,omitempty"`
+	Method       *string    `json:"method,omitempty"`
+	Path         *string    `json:"path,omitempty"`
+	InstanceName *string    `json:"instanceName,omitempty"`
+	Status       *int       `json:"status,omitempty"`
+	DurationMs   *float64   `json:"durationMs,omitempty"`
+	CreatedAt    *time.Time `json:"createdAt,omitempty"`
+}
+
+// RequestLogPage is one page of RequestLogEntry results plus the total
+// number of matching rows, so the UI can render "Page X of Y" pagination
+// without guessing from page size alone.
+type RequestLogPage struct {
+	Items []RequestLogEntry `json:"items"`
+	Total int               `json:"total"`
+}

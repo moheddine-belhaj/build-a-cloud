@@ -33,6 +33,7 @@ func RequireAuth(secret string) func(http.HandlerFunc) http.HandlerFunc {
 				return
 			}
 
+			setRequestLogUserID(r.Context(), userID)
 			next(w, r.WithContext(WithUserID(r.Context(), userID)))
 		}
 	}
