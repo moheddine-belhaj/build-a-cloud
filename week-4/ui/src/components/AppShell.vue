@@ -26,7 +26,7 @@ function logout() {
 </script>
 
 <template>
-  <div class="flex min-h-screen bg-bg text-foreground">
+  <div class="flex h-screen bg-bg text-foreground">
     <aside class="flex w-56 flex-shrink-0 flex-col border-r border-border bg-surface px-3 py-4">
       <RouterLink to="/instances" class="flex items-center gap-2.5 px-2 pb-5 pt-1.5">
         <span class="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent">

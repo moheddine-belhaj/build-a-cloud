@@ -37,6 +37,18 @@ const router = createRouter({
       props: true,
     },
     {
+      path: '/instances/:id/activity',
+      name: 'instance-activity',
+      component: () => import('../views/InstanceActivityView.vue'),
+      props: true,
+    },
+    {
+      path: '/instances/:id/query',
+      name: 'instance-query',
+      component: () => import('../views/InstanceQueryView.vue'),
+      props: true,
+    },
+    {
       path: '/users',
       name: 'users',
       component: () => import('../views/UsersView.vue'),

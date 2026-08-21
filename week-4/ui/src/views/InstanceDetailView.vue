@@ -3,13 +3,11 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter, RouterLink } from 'vue-router'
 import {
   instancesApi,
-  auditLogsApi,
   ApiError,
   type Instance,
   type ConnectionInfo,
   type ServiceInfo,
   type UpdateInstanceRequest,
-  type AuditLogEntry,
 } from '@/lib/api'
 import PhaseBadge from '@/components/PhaseBadge.vue'
 import ExternalBadge from '@/components/ExternalBadge.vue'
@@ -41,32 +39,9 @@ const servicesError = ref('')
 const loadingServices = ref(false)
 const servicesLoaded = ref(false)
 
-const auditLog = ref<AuditLogEntry[]>([])
-const auditLogError = ref('')
-const loadingAuditLog = ref(false)
-const auditLogLoaded = ref(false)
-
 function portsSummary(svc: ServiceInfo): string {
   if (!svc.ports || svc.ports.length === 0) return '—'
   return svc.ports.map((p) => `${p.port}/${p.protocol ?? 'TCP'}`).join(', ')
-}
-
-function formatAuditAction(action: string): string {
-  const label = action.replace('.', ' ')
-  return label.charAt(0).toUpperCase() + label.slice(1)
-}
-
-async function loadAuditLog() {
-  auditLogError.value = ''
-  loadingAuditLog.value = true
-  try {
-    auditLog.value = await auditLogsApi.listForInstance(props.id)
-    auditLogLoaded.value = true
-  } catch (e) {
-    auditLogError.value = e instanceof ApiError ? e.message : 'Failed to load activity.'
-  } finally {
-    loadingAuditLog.value = false
-  }
 }
 
 const connectionString = computed(() => {
@@ -211,7 +186,6 @@ function copy(text: string) {
 onMounted(() => {
   refresh()
   loadServices()
-  loadAuditLog()
   pollHandle = setInterval(refresh, 5000)
 })
 
@@ -469,38 +443,21 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <div class="rounded-lg border border-border bg-surface-2 p-6 shadow-sm">
-        <div class="mb-4 flex items-center justify-between">
-          <h2 class="text-sm font-semibold text-foreground">Activity</h2>
-          <button
-            v-if="auditLogLoaded"
-            :disabled="loadingAuditLog"
-            class="text-xs font-medium text-muted hover:text-foreground disabled:opacity-50"
-            @click="loadAuditLog"
-          >
-            {{ loadingAuditLog ? 'Refreshing…' : 'Refresh' }}
-          </button>
-        </div>
-
-        <p class="mb-4 text-sm text-muted">
-          This instance's own history — creation, changes, deletion, and credential access.
-          For every action on your account, see <RouterLink to="/activity" class="text-accent hover:underline">Activity</RouterLink>.
-        </p>
-
-        <p v-if="auditLogError" class="text-sm text-danger">{{ auditLogError }}</p>
-        <p v-else-if="loadingAuditLog && !auditLogLoaded" class="text-sm text-muted">Loading…</p>
-        <p v-else-if="auditLogLoaded && auditLog.length === 0" class="text-sm text-muted">No activity recorded yet.</p>
-
-        <ul v-if="auditLog.length > 0" class="space-y-2 text-sm">
-          <li
-            v-for="entry in auditLog"
-            :key="entry.id"
-            class="flex items-center justify-between gap-3 border-b border-border py-2 last:border-0"
-          >
-            <span class="font-medium text-foreground">{{ formatAuditAction(entry.action) }}</span>
-            <span class="text-muted">{{ new Date(entry.createdAt).toLocaleString() }}</span>
-          </li>
-        </ul>
+      <div class="grid grid-cols-2 gap-3">
+        <RouterLink
+          :to="`/instances/${id}/activity`"
+          class="flex items-center justify-between rounded-lg border border-border bg-surface-2 p-4 text-sm font-semibold text-foreground shadow-sm hover:text-accent"
+        >
+          View activity
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7" /></svg>
+        </RouterLink>
+        <RouterLink
+          :to="`/instances/${id}/query`"
+          class="flex items-center justify-between rounded-lg border border-border bg-surface-2 p-4 text-sm font-semibold text-foreground shadow-sm hover:text-accent"
+        >
+          Run query
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7" /></svg>
+        </RouterLink>
       </div>
 
       <div class="flex justify-end">

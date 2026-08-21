@@ -133,6 +133,24 @@ export interface ConnectionInfo {
   password: string
 }
 
+export interface QueryRequest {
+  query: string
+  /** If true, runs inside a Postgres `BEGIN READ ONLY` transaction, so any
+   * data/schema-modifying statement is rejected by Postgres itself rather
+   * than relying on client-side inspection of the SQL text. */
+  readOnly?: boolean
+}
+
+/** Result of one executed statement — either a result set (columns/rows,
+ * for SELECT-like statements) or an affected-row count, never both. */
+export interface QueryResult {
+  columns?: string[]
+  rows?: unknown[][]
+  rowsAffected?: number
+  /** Postgres's own command tag, e.g. "SELECT 3", "INSERT 0 1". */
+  command?: string
+}
+
 export type AuditAction =
   | 'user.registered'
   | 'user.login'
@@ -178,6 +196,11 @@ export const instancesApi = {
     request<ConnectionInfo>(`/v1/instances/${encodeURIComponent(id)}/connection`),
   services: (id: string) =>
     request<ServiceInfo[]>(`/v1/instances/${encodeURIComponent(id)}/services`),
+  runQuery: (id: string, body: QueryRequest) =>
+    request<QueryResult>(`/v1/instances/${encodeURIComponent(id)}/query`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 }
 
 export const auditLogsApi = {
@@ -186,5 +209,34 @@ export const auditLogsApi = {
   listForInstance: (id: string, params: { limit?: number; offset?: number } = {}) =>
     request<AuditLogEntry[]>(
       `/v1/instances/${encodeURIComponent(id)}/audit-logs?${new URLSearchParams(params as Record<string, string>)}`,
+    ),
+}
+
+/** One recorded HTTP request/response cycle, newest-first — distinct from
+ * AuditLogEntry (user-initiated actions): this is the raw request log
+ * backing the UI's "Activity" pages. */
+export interface RequestLogEntry {
+  id: number
+  method: string
+  path: string
+  /** Present only for requests whose path targeted a specific instance. */
+  instanceName?: string
+  status: number
+  durationMs: number
+  createdAt: string
+}
+
+export interface RequestLogPage {
+  items: RequestLogEntry[]
+  /** Total matching rows, independent of limit/offset — for "Page X of Y". */
+  total: number
+}
+
+export const requestLogsApi = {
+  list: (params: { limit?: number; offset?: number } = {}) =>
+    request<RequestLogPage>(`/v1/request-logs?${new URLSearchParams(params as Record<string, string>)}`),
+  listForInstance: (id: string, params: { limit?: number; offset?: number } = {}) =>
+    request<RequestLogPage>(
+      `/v1/instances/${encodeURIComponent(id)}/request-logs?${new URLSearchParams(params as Record<string, string>)}`,
     ),
 }
